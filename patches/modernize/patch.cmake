@@ -102,7 +102,10 @@ function(_sbc_receiver_export_tree expected)
     set(ref_rx
         "L[^;]*;->registerReceiver\\(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;\\)Landroid/content/Intent;"
     )
-    file(GLOB_RECURSE smalis "${TREE}/smali/com/creative/*.smali")
+    # Whole app code, every dex (smali, smali_classes2, ...), every package: the
+    # stock app and its bundled libraries (ibluz under smali/c, support classes)
+    # all make the two-arg call, and every one that runs throws on 34+.
+    file(GLOB_RECURSE smalis "${TREE}/*.smali")
     set(total 0)
     foreach(f ${smalis})
         get_filename_component(bn "${f}" NAME)
@@ -339,13 +342,71 @@ message(STATUS "modernize: foreground-service notification channel shim wired (2
 # must pass RECEIVER_EXPORTED/RECEIVER_NOT_EXPORTED under target 34+; the
 # two-arg call throws SecurityException on a 34+ device. The first site runs in
 # MainActivity.onCreate (LocalMusicManager) and more run in onStart (fragments
-# via FragmentActivity), so the app crashes on launch on Android 14+. The call
-# is made through Context, support FragmentActivity, MainActivity and
-# MainService (all Context subtypes). Redirect every two-arg registerReceiver
-# call to the RcvCompat.register shim (modernize overlay), which passes
-# RECEIVER_EXPORTED on 34+ and is unchanged below. 78 sites across 58 files.
+# via FragmentActivity), so the app crashes on launch on Android 14+. A further
+# site runs inside the bundled ibluz Bluetooth library (smali/c, obfuscated c.d)
+# during BluzDeviceFactory.getDevice when the SPP control channel opens; its
+# SecurityException is swallowed, so the app survives but the device connection
+# silently fails and the "device in use" state never clears. Redirect every
+# two-arg registerReceiver call, in every dex and package (the stock app, the
+# ibluz library, and support classes), to the RcvCompat.register shim (modernize
+# overlay), which passes RECEIVER_EXPORTED on 34+ and is unchanged below.
+# 96 sites across the whole smali tree.
 # ---------------------------------------------------------------------------
 
-_sbc_receiver_export_tree(78)
+_sbc_receiver_export_tree(96)
 
-message(STATUS "modernize: registerReceiver export shim wired (78 sites across 58 files)")
+message(STATUS "modernize: registerReceiver export shim wired (96 sites, whole smali tree)")
+
+# ---------------------------------------------------------------------------
+# >=31 Nearby Devices runtime permission request flow. Device-gated follow-up
+# to the BLUETOOTH_SCAN/CONNECT manifest declarations above (the request UI the
+# header notes was left for a device). The stock app predates the API 31
+# Bluetooth permission split and never calls requestPermissions, so on 31+ the
+# runtime permissions sit denied, every Bluetooth call throws SecurityException,
+# and bonded-device enumeration and the SPP connection fail silently - no device
+# is ever found. BtPermCompat (modernize overlay) requests BLUETOOTH_CONNECT and
+# BLUETOOTH_SCAN (the connect and discovery paths use both), resumes the normal
+# init path via Activity.recreate() on grant, and gates the connection manager's
+# discovery (startDiscovery) and bonded-enumeration (getBondedDevices) entry
+# points so they no-op instead of throwing until the grant lands. Below 31 the
+# legacy install-time permissions apply and the shim is inert. CtProtocol and the
+# native libraries are untouched.
+#
+# The requests are chained off each preceding result rather than fired together
+# from onCreate: onCreate's D() already calls requestPermissions (code 0x457) for
+# the stock runtime permissions (camera/mic/location), and Android drops a second
+# requestPermissions while a dialog sequence is still pending - firing the BT
+# request from onCreate therefore never shows its dialog. onResult instead walks a
+# sequential chain, each link firing when the previous result returns:
+#   0x457 (stock) -> ensure() requests BLUETOOTH_CONNECT/SCAN (0x42c)
+#   0x42c (BT)    -> askNotif() requests POST_NOTIFICATIONS (0x42d, API 33+)
+#   0x42d (notif) -> resume() recreates on BT grant
+# so the dialogs appear back to back (location/mic, Nearby devices, notifications).
+# POST_NOTIFICATIONS is already declared in the manifest block above; without the
+# runtime request it stays denied and the app cannot post its foreground-service or
+# media notifications. D()'s request is unconditional, so the chain fires on every
+# launch and is a no-op once the grants are held.
+# ---------------------------------------------------------------------------
+set(ma "${TREE}/smali/com/creative/apps/sbconnect/MainActivity.smali")
+set(cm "${TREE}/smali/com/creative/logic/sbxapplogic/SbxConnectionManager.smali")
+
+# chain the BT request off the stock permission result, and resume the normal init
+# path on grant: hand every permission result to BtPermCompat after super.
+_sbc_sub("${ma}"
+         "invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V"
+         "invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V\n\n    invoke-static {p0, p1, p2, p3}, Lcom/creative/apps/sbconnect/BtPermCompat;->onResult(Landroid/app/Activity;I[Ljava/lang/String;[I)V"
+         1)
+
+# gate discovery (startDiscovery, BLUETOOTH_SCAN) before the method monitor.
+_sbc_sub("${cm}"
+         ".method public declared-synchronized a()V\n    .locals 3\n\n    monitor-enter p0"
+         ".method public declared-synchronized a()V\n    .locals 3\n\n    iget-object v0, p0, Lcom/creative/logic/sbxapplogic/SbxConnectionManager;->j:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/creative/apps/sbconnect/BtPermCompat;->ok(Landroid/content/Context;)Z\n\n    move-result v0\n\n    if-nez v0, :sbc_bt_gate\n\n    return-void\n\n    :sbc_bt_gate\n    monitor-enter p0"
+         1)
+
+# gate bonded-device enumeration (getBondedDevices, BLUETOOTH_CONNECT) at the top.
+_sbc_sub("${cm}"
+         ".method public f()V\n    .locals 5\n\n    :try_start_0"
+         ".method public f()V\n    .locals 5\n\n    iget-object v0, p0, Lcom/creative/logic/sbxapplogic/SbxConnectionManager;->j:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/creative/apps/sbconnect/BtPermCompat;->ok(Landroid/content/Context;)Z\n\n    move-result v0\n\n    if-nez v0, :sbc_bt_gate\n\n    return-void\n\n    :sbc_bt_gate\n    :try_start_0"
+         1)
+
+message(STATUS "modernize: runtime permission chain wired (BtPermCompat: stock -> Nearby Devices -> notifications, + discovery/bonded gates)")

@@ -38,13 +38,14 @@ defect.
 ## Protocol-freeze attestation
 
 No encoder or decoder semantics were modified during Phase 5. Every fix made to
-reach a clean launch is a platform-API compatibility shim in the modernize
-patch (manifest `uses-library` / permissions / foreground-service type, a
-PendingIntent flag correction, a notification-channel shim, and a
-registerReceiver export shim); none alters CtProtocol byte behavior. The two
-native `.so` hashes are identical to the A1-built libraries and unchanged across
-every packaging iteration, verified on two 64-bit-only runtimes (Pixel 7a /
-API 33 and Galaxy S24 Ultra / API 36).
+reach a clean launch and connection is a platform-API compatibility shim in the
+modernize patch (manifest `uses-library` / permissions / foreground-service type,
+a PendingIntent flag correction, a notification-channel shim, a registerReceiver
+export shim, and a runtime-permission request chain for API 31+ Bluetooth and
+API 33 notifications); none alters CtProtocol byte behavior. The two native `.so`
+hashes are identical to the A1-built libraries and unchanged across every
+packaging iteration, verified on two 64-bit-only runtimes (Pixel 7a / API 33 and
+Galaxy S24 Ultra / API 36).
 
 ## Deliverables
 

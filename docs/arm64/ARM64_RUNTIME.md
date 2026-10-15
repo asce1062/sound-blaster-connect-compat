@@ -88,15 +88,37 @@ semantics, which stay frozen.
    (API 33) never hit it; the S24 Ultra (API 36) crashes at launch - first in
    `MainActivity.onCreate` (`LocalMusicManager`), then in `onStart` (fragments).
    The call is made through four static types (`Context`, support
-   `FragmentActivity`, `MainActivity`, `MainService`), 78 sites across 58 files.
-   All route through the `RcvCompat.register` overlay, which passes
-   `RECEIVER_EXPORTED` on API 34+ (reproducing the pre-Android-13 implicit-export
-   behaviour the stock app relied on) and the original two-arg call below.
-   Confirmed on the S24: clean launch, crash buffer empty, app reaches the
-   Dashboard (`runtime/s24_launch.txt`).
+   `FragmentActivity`, `MainActivity`, `MainService`), 96 sites across the whole
+   smali tree - including the bundled `com.actions.ibluz` library (`smali/c/`),
+   which performs the SPP/RFCOMM connection and whose own `registerReceiver` call
+   threw after launch was fixed, leaving the device stuck "in use". All route
+   through the `RcvCompat.register` overlay, which passes `RECEIVER_EXPORTED` on
+   API 34+ (reproducing the pre-Android-13 implicit-export behaviour the stock app
+   relied on) and the original two-arg call below. Confirmed on the S24: clean
+   launch, crash buffer empty, app reaches the Dashboard (`runtime/s24_launch.txt`).
+
+6. **Nearby Devices + notification runtime permissions (API 31 / 33)** - at
+   `targetSdk 34` the legacy install-time `BLUETOOTH`/`BLUETOOTH_ADMIN` grants no
+   longer cover Bluetooth; the app needs the runtime `BLUETOOTH_CONNECT`
+   (bonded-device enumeration, SPP connection) and `BLUETOOTH_SCAN` (discovery)
+   permissions, and to post its own notifications it needs `POST_NOTIFICATIONS`
+   (API 33). The stock app predates all three and never calls `requestPermissions`,
+   so each stays denied and every Bluetooth call throws `SecurityException` - no
+   device is found. The `BtPermCompat` overlay drives a sequential request chain
+   from `MainActivity.onRequestPermissionsResult`: the stock permission batch
+   (camera/mic/location, code `0x457`) returns, then `BLUETOOTH_CONNECT`/`SCAN`
+   (`0x42c`), then `POST_NOTIFICATIONS` (`0x42d`), then `recreate()` resumes the
+   connection path. The requests are chained rather than fired together because
+   Android drops a second `requestPermissions` while a dialog is pending. The
+   connection manager's discovery and bonded-enumeration entry points are gated so
+   they no-op instead of throwing until the grant lands. Below API 31 the shim is
+   inert and the legacy permissions apply. Confirmed on the S24: the dialogs appear
+   in order (location/mic, Nearby devices, notifications), all five permissions end
+   `granted=true`, and the app connects to the Katana with no Settings step.
 
 Fixes 1-3 were needed to reach the Dashboard; fix 4 for the preset screens
-reached from it; fix 5 for launch on Android 14+ (API 34+) devices.
+reached from it; fix 5 for launch on Android 14+ (API 34+) devices; fix 6 for the
+Bluetooth connection itself on Android 12+ (API 31+) devices.
 
 ## A6 - negative control
 
@@ -116,11 +138,11 @@ device class.
 
 | Artifact | SHA-256 |
 |---|---|
-| Final arm64 APK (signed) | `9a54a7f872b535d6d50a6697d276016b5b799875464ff71b98bb0c72ce89b93f` |
+| Final arm64 APK (signed) | `d46d580e465c6cd8c9527b9bc5600bfcdf8eda96bdd5def321cf2522620a57d2` |
 | `libsbxapplogic_ctprotocol_jni.so` (arm64-v8a) | `ef9bad520bd1c94d9a942857425b80722d650190dd120dad8d9d070490e52c6e` |
 | `libserialport_jni.so` (arm64-v8a) | `e50efa5e59d111a695b6eb7d1457824df03921f53eb6e4eda04fc524f4d58a87` |
 
-The APK hash is the current build with all five fixes; it supersedes the
+The APK hash is the current build with all six fixes; it supersedes the
 Pixel-only builds (`5afae081...` junit fix, `b53a8893...` pre-junit). The two
 `.so` hashes are unchanged across every iteration, since all fixes are
 manifest/smali-only.
@@ -137,6 +159,7 @@ A second 64-bit-only arm64 device confirms the package on a much newer platform:
 | Install | Success, `primaryCpuAbi=arm64-v8a` |
 | Launch | 0 FATAL, process alive, reaches Dashboard (`runtime/s24_launch.txt`) |
 
-The S24 required fix 5 (API 34 receiver export), which the Pixel's API 33
-platform never triggered. With it, the app installs, loads the arm64 libraries,
-and reaches its normal device-connection UI on both runtimes.
+The S24 required fix 5 (API 34 receiver export) and fix 6 (API 31+ runtime
+Bluetooth permissions), which the Pixel's API 33 platform did not force. With
+them, the app installs, loads the arm64 libraries, requests its permissions
+in-app, and connects over Bluetooth SPP to the Katana on both runtimes.
