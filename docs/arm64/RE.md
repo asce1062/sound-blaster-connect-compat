@@ -113,10 +113,94 @@ File transfer (firmware / profile files):
 - Matches the widely-used `android-serialport-api`. The arm64 build comes
   from that public source compiled with the NDK; nothing device-specific.
 
+## Command frame format
+
+Recovered by decompiling the `Encode` builders, `Decode::decode`, and
+`checksum` (Ghidra 12.1.4 headless; REA's win32 Ghidra provider is PE-only so
+it cannot open ARM ELF, same decompiler engine either way).
+
+Every method has the shape
+`Encode::<cmd>(Context*, uint8_t* buf, int* len, <args...>)`: it validates
+capacity, writes the frame into `buf`, and stores the byte count in `*len`.
+
+### Outbound (host -> device)
+
+```
+offset 0   0x5A            fixed start marker ('Z'), every command
+offset 1   op              operation/feature group
+offset 2   sub             sub-selector within the group
+offset 3.. payload         command arguments, little-endian scalars
+```
+
+The length is implicit: fixed per opcode for simple commands, carried in the
+frame for variable ones (see file transfer). No trailing checksum on command
+frames. Worked examples:
+
+| Command | Bytes | Len |
+|---|---|---|
+| `requestControl` | `5A 06 01 01` | 4 |
+| `releaseControl` | `5A 06 01 00` | 4 |
+| `getFirmwareInfo(n)` | `5A 07 02 01 nn` | 5 |
+| `setTime(t)` | `5A 3B 04 t0 t1 t2 t3` | 7 |
+| `setLedCtrl(...)` | `5A 3A 09 00 FF 00 00 00 pp 00 00 00` | 12 |
+| `getFileDataBlk(buf,n,blk)` | `5A 98 (n+2) blk n <n data bytes>` | n+5 |
+
+`setTime` writes the 32-bit value little-endian (`buf[3..6] = t>>0,8,16,24`);
+that byte order holds for every multi-byte scalar. `requestControl` vs
+`releaseControl` differ only in `buf[3]` (1 = take control, 0 = release), so
+`op=0x06 sub=0x01` is the control-session command and byte 3 its on/off flag.
+
+`getFileDataBlk` is the one builder with an in-frame length: `buf[2]` =
+payload + 2, `buf[4]` = payload length `n` (1..0xFD), `buf[3]` = block id
+(0x80..0x82), then `n` raw data bytes.
+
+### Inbound (device -> host) — `Decode::decode(Context*, uint8_t*, int len)`
+
+One 7390-byte dispatcher. Framing:
+
+```
+offset 0   0x5A            echoed start marker
+offset 1   type            response type/status (e.g. 0x22, 0x13)
+offset 2   plen            payload length == total len - 3
+offset 3.. payload
+```
+
+It rejects `len < 3`, checks `plen == len - 3`, then dispatches on the
+feature id and total length (`len == 5 / 6 / 7 / 0xD ...`) into the
+`MsgListener` vtable (`listen` overloads at vtable offsets 0x0C, 0x10, 0x14,
+0xE0, 0xE4, ...), each a typed callback for one response shape. Feature ids
+match the outbound side (`0x3A` LED, `0x98`/`0x99` file data, etc.). The
+~60 `MsgListener::listen` thunks are these per-response vtable entries.
+
+### checksum
+
+```c
+uint8_t checksum(int len, const uint8_t* data, uint8_t* out) {
+    if (len < 0)   return 0x71;
+    if (!data)     return 0x72;
+    if (!out)      return 0x73;
+    uint8_t c = 0xFF;
+    for (int i = 0; i < len; i++) c -= data[i];
+    *out = c;                 // *out = (0xFF - sum(data)) & 0xFF
+    return 0;
+}
+```
+
+Exported but not called by any `Encode` builder or by `Decode::decode`; it is
+the file-transfer / integrity helper, available to callers rather than part of
+the command framing above.
+
+### JNI binding
+
+`Java_...SbxSppCommandManager_<cmd>` wrappers marshal the Java `byte[]` and
+call the matching `Encode::<cmd>`; `..._decode` hands the inbound buffer to
+`Decode::decode`. Static exports (not RegisterNatives), so both sides of every
+binding are visible by name.
+
 ## Next
 
-Decompile a representative `Encode` builder (e.g. `setLedCtrl`,
-`getFirmwareInfo`) and `checksum` to pin the exact frame: opcode table,
-header/length framing, and checksum algorithm. That frame spec is what both
-the arm64 reimplementation and the own app are built on. Decompilation via
-REA/Ghidra; findings land here.
+Reimplement the two libs for `arm64-v8a`: `libserialport_jni.so` from the
+public `android-serialport-api` source, and `libsbxapplogic_ctprotocol_jni.so`
+from the frame spec above (the Encode builders are mechanical given the opcode
+bytes; `Decode::decode` is the one large function to port faithfully). Build
+both with the NDK and drop them into the `arm64` patch overlay.
