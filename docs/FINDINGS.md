@@ -101,3 +101,27 @@ Creative key, which is not available.
 | Re-sign | `resign` | 32-bit-capable Android 13/14 phones (sideload) | 32-bit pipeline session |
 | Modernize | `modernize` | same, higher targetSdk | 32-bit pipeline session |
 | Native 64-bit | `arm64` | 64-bit-only devices (Pixel 7/8) — once libs exist | this session + own-app work |
+
+## Modernize status
+
+`patches/modernize/` is implemented and raises `targetSdkVersion` to **34**.
+Both deliverables build and sign clean (debug key, v1+v2+v3); the stock ABIs
+(`armeabi armeabi-v7a utility x86`) are unchanged in both, so each still runs
+only on 32-bit-capable devices.
+
+Applied for the 31/33/34 gates: explicit `android:exported` on the 5 filtered
+components that lacked it; `PendingIntent` `FLAG_IMMUTABLE` on all 23
+construction sites (app + bundled support/androidx/GMS); `BLUETOOTH_SCAN` /
+`BLUETOOTH_CONNECT` added with legacy `BLUETOOTH` / `BLUETOOTH_ADMIN` capped at
+`maxSdkVersion 30`; `POST_NOTIFICATIONS`; `FOREGROUND_SERVICE` +
+`FOREGROUND_SERVICE_MEDIA_PLAYBACK` with `MainService foregroundServiceType=
+mediaPlayback` (no dangerous-permission prerequisite, so the FGS starts before
+the BT runtime grants).
+
+Verified structurally only — no 32-bit Android 13/14 device was attached for
+this work, so install + launch were not confirmed on hardware. Still device-
+gated: the runtime `requestPermissions()` UI for `BLUETOOTH_SCAN/CONNECT` and
+`POST_NOTIFICATIONS` is not wired in (the app targets 26 and never requested
+them), so on Android 12+ those must be granted in Settings until that smali is
+added. `patches/modernize/README.md` has the full change list and rationale
+(including why `usesPermissionFlags="neverForLocation"` is omitted).

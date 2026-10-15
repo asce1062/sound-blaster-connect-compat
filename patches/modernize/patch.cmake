@@ -1,35 +1,228 @@
-# modernize/patch.cmake — raise the target API level.
+# modernize/patch.cmake — raise the target API level and apply the Android
+# 12/13/14 behavior changes that follow.
 #
-# STARTER STEP ONLY. Bumps targetSdkVersion 26 -> 30. 30 (Android 11) is the
-# highest level reachable WITHOUT the extra smali work that 31+ forces
-# (explicit android:exported, PendingIntent FLAG_IMMUTABLE, runtime
-# BLUETOOTH_CONNECT/SCAN, POST_NOTIFICATIONS, foregroundServiceType). It
-# stays installable on every device while being a real step up from 26.
+# Runs with ${TREE} set to the staged (fresh) copy of the pristine decompiled/
+# tree. Edits are in-place (apktool.yml, AndroidManifest.xml, smali); this
+# patch ships no overlay/ tree.
 #
-# apktool reads targetSdkVersion from apktool.yml at build time and writes it
-# into the built manifest, so editing the yml is the whole change. Push
-# further only alongside the matching manifest/smali edits — see README.md
-# and docs/FINDINGS.md.
+# Target: raise targetSdkVersion 26 -> 34. Every change below is required by,
+# and verified against, the component inventory in docs/FINDINGS.md:
+#
+#   * exported (>=31): the 5 filtered components that lacked an explicit
+#     android:exported. Without this the package will not install on 31+.
+#   * PendingIntent FLAG_IMMUTABLE (>=31): all 23 PendingIntent construction
+#     sites. Without a mutability flag, getActivity/getService/getBroadcast/
+#     getActivities throws IllegalArgumentException at runtime on 31+.
+#   * Bluetooth runtime permissions (>=31): BLUETOOTH_SCAN / BLUETOOTH_CONNECT;
+#     the legacy BLUETOOTH / BLUETOOTH_ADMIN are capped at maxSdkVersion 30.
+#   * POST_NOTIFICATIONS (>=33): runtime notification permission.
+#   * foregroundServiceType + FOREGROUND_SERVICE* (>=34): MainService is a
+#     foreground service (2-arg startForeground, so it adopts the manifest
+#     type). mediaPlayback has no dangerous-permission prerequisite, so the
+#     service still starts before the BT runtime permissions are granted.
+#
+# What is NOT done here (needs a device): the runtime *request* UI for
+# BLUETOOTH_SCAN/CONNECT and POST_NOTIFICATIONS. Declaring them lets the user
+# grant them in Settings; wiring requestPermissions() into the app's flow is
+# the device-gated follow-up. See README.md.
 
-set(target_from "26")
-set(target_to "30")
+set(final_target "34")
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+# Count non-overlapping literal occurrences of <needle> in <haystack>.
+function(_sbc_count haystack needle out)
+    set(n 0)
+    set(s "${haystack}")
+    string(LENGTH "${needle}" nl)
+    if(nl EQUAL 0)
+        message(FATAL_ERROR "modernize: empty needle")
+    endif()
+    string(FIND "${s}" "${needle}" pos)
+    while(NOT pos EQUAL -1)
+        math(EXPR n "${n}+1")
+        math(EXPR cut "${pos}+${nl}")
+        string(SUBSTRING "${s}" ${cut} -1 s)
+        string(FIND "${s}" "${needle}" pos)
+    endwhile()
+    set(${out}
+        ${n}
+        PARENT_SCOPE)
+endfunction()
+
+# Literal find-and-replace in <path>, asserting the needle occurs exactly
+# <expected> times. Fails loudly if the stock text drifts.
+function(_sbc_sub path needle replacement expected)
+    if(NOT EXISTS "${path}")
+        message(FATAL_ERROR "modernize: file missing: ${path}")
+    endif()
+    file(READ "${path}" c)
+    _sbc_count("${c}" "${needle}" got)
+    if(NOT got EQUAL expected)
+        message(
+            FATAL_ERROR
+                "modernize: anchor found ${got} time(s), expected ${expected}, in ${path}\n"
+                "  anchor: ${needle}")
+    endif()
+    string(
+        REPLACE "${needle}"
+                "${replacement}"
+                c
+                "${c}")
+    file(WRITE "${path}" "${c}")
+endfunction()
+
+# Force FLAG_IMMUTABLE (0x04000000) into the flags register of a PendingIntent
+# factory call by loading the combined value immediately before the invoke.
+# <value> is the stock flags OR 0x04000000 (0x4000000 when the stock flags
+# were 0). <reg> is the last register operand of <invoke> (the flags arg).
+function(_sbc_pi relfile invoke reg value count)
+    _sbc_sub("${TREE}/${relfile}" "${invoke}"
+             "const ${reg}, ${value}\n\n    ${invoke}" ${count})
+endfunction()
+
+# ---------------------------------------------------------------------------
+# targetSdkVersion 26 -> ${final_target} (apktool writes the yml value into
+# the built manifest).
+# ---------------------------------------------------------------------------
 
 set(yml "${TREE}/apktool.yml")
-if(NOT EXISTS "${yml}")
-    message(FATAL_ERROR "modernize: apktool.yml missing: ${yml}")
-endif()
+_sbc_sub("${yml}" "targetSdkVersion: 26" "targetSdkVersion: ${final_target}" 1)
+message(STATUS "modernize: targetSdkVersion 26 -> ${final_target}")
 
-file(READ "${yml}" yml_text)
-string(
-    REPLACE "targetSdkVersion: '${target_from}'"
-            "targetSdkVersion: '${target_to}'"
-            yml_new
-            "${yml_text}")
-if(yml_new STREQUAL yml_text)
-    message(
-        FATAL_ERROR
-            "modernize: targetSdkVersion: '${target_from}' not found in apktool.yml "
-            "(already bumped, or the stock value changed)")
-endif()
-file(WRITE "${yml}" "${yml_new}")
-message(STATUS "modernize: targetSdkVersion ${target_from} -> ${target_to}")
+# ---------------------------------------------------------------------------
+# AndroidManifest.xml
+# ---------------------------------------------------------------------------
+
+set(mf "${TREE}/AndroidManifest.xml")
+
+# --- >=31: explicit android:exported on every filtered component -----------
+# Launcher, the BT/system receiver, the notification-listener service and the
+# media-button receiver are driven by the system, so they stay exported.
+# AppMeasurementReceiver is fed only by in-package broadcasts, so false.
+_sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainActivity\""
+         "android:exported=\"true\" android:name=\"com.creative.apps.sbconnect.MainActivity\""
+         1)
+_sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainReceiver\""
+         "android:exported=\"true\" android:name=\"com.creative.apps.sbconnect.MainReceiver\""
+         1)
+_sbc_sub("${mf}"
+         "android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\""
+         "android:exported=\"true\" android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\""
+         1)
+_sbc_sub("${mf}"
+         "android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
+         "android:exported=\"true\" android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
+         1)
+_sbc_sub("${mf}"
+         "android:name=\"com.google.android.gms.measurement.AppMeasurementReceiver\""
+         "android:exported=\"false\" android:name=\"com.google.android.gms.measurement.AppMeasurementReceiver\""
+         1)
+
+# --- >=31 Bluetooth + >=33 notifications + >=34 foreground service perms ---
+# Cap the legacy permissions at 30 and add the runtime-requested replacements.
+_sbc_sub("${mf}" "<uses-permission android:name=\"android.permission.BLUETOOTH\"/>"
+         "<uses-permission android:name=\"android.permission.BLUETOOTH\" android:maxSdkVersion=\"30\"/>"
+         1)
+_sbc_sub("${mf}"
+         "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>"
+         "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\" android:maxSdkVersion=\"30\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>\n    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK\"/>"
+         1)
+# Note: android:usesPermissionFlags="neverForLocation" on BLUETOOTH_SCAN is
+# omitted. apktool's pinned framework (api 23 attr table) predates that API-31
+# attribute, so aapt2 rejects it. The app already declares ACCESS_FINE_LOCATION,
+# so scanning works with location granted; neverForLocation would only let the
+# app skip the location grant, which is not required here.
+
+# --- >=34: MainService foreground service type -----------------------------
+_sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainService\">"
+         "android:foregroundServiceType=\"mediaPlayback\" android:name=\"com.creative.apps.sbconnect.MainService\">"
+         1)
+
+message(STATUS "modernize: manifest exported + permissions + foregroundServiceType")
+
+# ---------------------------------------------------------------------------
+# PendingIntent FLAG_IMMUTABLE (>=31), all 23 construction sites.
+#
+# <value> = stock flags | 0x04000000:
+#   0x0        -> 0x4000000    0x08000000 (UPDATE_CURRENT) -> 0xc000000
+#   0x10000000 (CANCEL_CURRENT) -> 0x14000000
+#   0x40000000 (ONE_SHOT)       -> 0x44000000
+# Loading the combined value into the flags register just before the call also
+# supersedes any earlier const into that register. Where the flags register is
+# the reused requestCode register (value 0), the requestCode becomes the same
+# constant, which only affects PendingIntent dedup identity.
+# ---------------------------------------------------------------------------
+
+# app's own code
+_sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
+        "invoke-static {p0, v11, v1, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v11 0x4000000 1)
+_sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
+        "invoke-static {p0, v12, v2, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v11 0x4000000 1)
+_sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
+        "invoke-static {p0, v1, v0, v2}, Landroid/app/PendingIntent;->getService(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v2 0x4000000 1)
+_sbc_pi("smali/com/creative/logic/sbxapplogic/LocalMusicManager.smali"
+        "invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 1)
+
+# bundled androidx / support libraries
+_sbc_pi("smali/android/support/v4/app/TaskStackBuilder\$TaskStackBuilderApi16Impl.smali"
+        "invoke-static {p1, p3, p2, p4, p5}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/PendingIntent;"
+        p4 0x4000000 1)
+_sbc_pi("smali/android/support/v4/app/TaskStackBuilder\$TaskStackBuilderBaseImpl.smali"
+        "invoke-static {p1, p3, p2, p4}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;I)Landroid/app/PendingIntent;"
+        p4 0x4000000 1)
+_sbc_pi("smali/android/support/v4/media/session/MediaButtonReceiver.smali"
+        "invoke-static {p0, v1, v0, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v4 0x4000000 1)
+_sbc_pi("smali/android/support/v4/media/session/MediaSessionCompat.smali"
+        "invoke-static {p1, v2, v0, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v2 0x4000000 1)
+_sbc_pi("smali/android/support/v7/media/RemotePlaybackClient.smali"
+        "invoke-static {p1, v3, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 2)
+_sbc_pi("smali/android/support/v7/widget/SearchView.smali"
+        "invoke-static {v1, v3, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v4 0x44000000 1)
+
+# bundled Google Play services
+_sbc_pi("smali/com/google/android/gms/analytics/internal/zzv.smali"
+        "invoke-static {v1, v3, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 1)
+_sbc_pi("smali/com/google/android/gms/auth/api/credentials/internal/zzd.smali"
+        "invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x14000000 1)
+_sbc_pi("smali/com/google/android/gms/cast/CastRemoteDisplayLocalService.smali"
+        "invoke-static {p0, v1, v0, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v2 0x14000000 1)
+_sbc_pi("smali/com/google/android/gms/common/api/internal/zzd.smali"
+        "invoke-static {v0, v1, v2, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0xc000000 1)
+_sbc_pi("smali/com/google/android/gms/common/zzc.smali"
+        "invoke-static {p1, p3, v0, v1}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v1 0x14000000 1)
+_sbc_pi("smali/com/google/android/gms/gcm/GoogleCloudMessaging.smali"
+        "invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 1)
+_sbc_pi("smali_classes2/com/google/android/gms/gcm/GcmNetworkManager.smali"
+        "invoke-static {v0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v2 0x4000000 1)
+_sbc_pi("smali_classes2/com/google/android/gms/gcm/zzb.smali"
+        "invoke-static {v0, v2, v1, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x44000000 1)
+_sbc_pi("smali_classes2/com/google/android/gms/gcm/zzb.smali"
+        "invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getService(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x44000000 2)
+_sbc_pi("smali_classes2/com/google/android/gms/iid/zzc.smali"
+        "invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 1)
+_sbc_pi("smali_classes2/com/google/android/gms/measurement/internal/zzag.smali"
+        "invoke-static {v1, v3, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+        v3 0x4000000 1)
+
+message(STATUS "modernize: PendingIntent FLAG_IMMUTABLE applied (23 sites)")

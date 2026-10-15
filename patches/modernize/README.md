@@ -4,11 +4,12 @@ Raises the app's target API level and applies the behavior changes newer
 Android enforces. Layered on top of the `resign` repackage (the `modernize`
 variant = this patch; the `arm64` variant = this patch + `arm64`).
 
-This patch is **owned by the 32-bit-capable pipeline track** and is a
-scaffold right now — `patch.cmake` bumps the target SDK and nothing else, so
-the `modernize` variant currently builds the same bytes as `resign` plus the
-manifest/yml SDK change. Fill in the rest on a device, one change at a time,
-rebuilding and testing between each.
+This patch is **owned by the 32-bit-capable pipeline track**. `patch.cmake`
+raises `targetSdkVersion` to **34** and applies every manifest/smali change
+the 31/33/34 behavior gates force (see "What this patch does"). It builds and
+signs clean; the ABIs are unchanged (`armeabi armeabi-v7a utility x86`). What
+remains is the runtime permission-request UI, which needs a device (see
+"Remaining — device-gated").
 
 ## What a target-SDK bump requires
 
@@ -29,14 +30,52 @@ crashes or silently loses function:
 - **Foreground services:** `android:foregroundServiceType` is required, and
   from targetSdk 34 a matching `FOREGROUND_SERVICE_*` permission.
 
-Decide how far to push (33 vs 34) on the device you are targeting; each step
-adds surface. `docs/FINDINGS.md` has the component inventory and the exact
-manifest entries.
+## What this patch does
+
+All edits are in-place in `patch.cmake`; the patch ships no `overlay/`.
+
+- **targetSdkVersion 26 -> 34** in `apktool.yml` (apktool writes it into the
+  built manifest).
+- **`android:exported` (>=31)** added to the 5 filtered components that
+  lacked it: `MainActivity`, `MainReceiver`, `LocalMusicRemoteControllerService`
+  and `MediaButtonReceiver` stay exported (system-driven); `AppMeasurementReceiver`
+  is set `false` (fed only by in-package broadcasts). `MainService` already
+  declared `exported="true"`.
+- **`PendingIntent` `FLAG_IMMUTABLE` (>=31)** OR'd into all **23** construction
+  sites (`getActivity`/`getService`/`getBroadcast`/`getActivities`) across the
+  app's own code and the bundled support/androidx/GMS libraries. Without a
+  mutability flag these throw `IllegalArgumentException` at runtime on 31+.
+  The combined value preserves any stock flag (`UPDATE_CURRENT`,
+  `CANCEL_CURRENT`, `ONE_SHOT`).
+- **Bluetooth permissions (>=31):** legacy `BLUETOOTH` / `BLUETOOTH_ADMIN`
+  capped at `maxSdkVersion="30"`; `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` added.
+- **`POST_NOTIFICATIONS` (>=33)** added.
+- **Foreground service (>=34):** `FOREGROUND_SERVICE` +
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` added; `MainService` gets
+  `foregroundServiceType="mediaPlayback"`. `MainService` uses the 2-arg
+  `startForeground`, so it adopts the manifest type. `mediaPlayback` has no
+  dangerous-permission prerequisite, so the service still starts before the
+  BT runtime permissions are granted.
+
+`android:usesPermissionFlags="neverForLocation"` on `BLUETOOTH_SCAN` is
+deliberately omitted: apktool's pinned framework (api-23 attr table) predates
+that API-31 attribute and aapt2 rejects it. The app already declares
+`ACCESS_FINE_LOCATION`, so scanning works with location granted.
+
+## Remaining — device-gated
+
+Declaring a runtime permission is not the same as requesting it. The app
+targets 26 and never calls `requestPermissions()` for `BLUETOOTH_SCAN` /
+`BLUETOOTH_CONNECT` / `POST_NOTIFICATIONS`. Until that request UI is wired
+into the app's flow, the user must grant Nearby-devices and Notifications
+manually in Settings on Android 12+. Wiring the request is smali work that
+needs a device to validate, and is the next step for this track.
 
 ## Layout
 
-- `overlay/` — whole-file replacements, mirroring the decoded tree
-  (`AndroidManifest.xml`, `res/...`, `smali/...`).
-- `patch.cmake` — in-place edits (bump `apktool.yml` targetSdk, inject a
-  manifest attribute, rewrite a smali line). Runs with `${TREE}` set to the
-  staged tree.
+- `patch.cmake` — in-place edits (bump `apktool.yml` targetSdk, inject manifest
+  attributes, prepend `const` to PendingIntent flag registers). Runs with
+  `${TREE}` set to the staged tree. Each edit asserts its anchor occurs the
+  expected number of times, so a stock-text drift fails the build loudly.
+- `overlay/` — not used by this patch (whole-file replacements would go here,
+  mirroring the decoded tree).
