@@ -19,3 +19,6 @@ desktop.ini
 .idea/
 *.swp
 *~
+
+# NDK cross-compile intermediates (per-ABI)
+patches/arm64/native/build/

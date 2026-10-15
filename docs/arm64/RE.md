@@ -106,12 +106,73 @@ Room calibration:
 File transfer (firmware / profile files):
 `getFileDataBlk` · `sendFile` · `fileTransferCancel`
 
-## serialport library
+## serialport library — DONE (arm64-v8a built)
 
-- `native_open(JNIEnv*, jobject, jstring path, int baud)`,
-  `native_close(JNIEnv*, jobject)`, `JNI_OnLoad` (RegisterNatives).
-- Matches the widely-used `android-serialport-api`. The arm64 build comes
-  from that public source compiled with the NDK; nothing device-specific.
+Decompiled `native_open` / `native_close` / `JNI_OnLoad` and rebuilt faithfully
+at [patches/arm64/native/serialport/serialport.c](../../patches/arm64/native/serialport/serialport.c);
+arm64-v8a `.so` staged in `patches/arm64/overlay/lib/arm64-v8a/`.
+
+- Bound to `com.creative.serialport.SerialPort` via `RegisterNatives` in
+  `JNI_OnLoad` (JNI 1.6): `open(String,int)->FileDescriptor`, `close()->int`.
+- `open`: maps baud to its CBAUD code (the Katana uses 38400 = `0x9600`),
+  `open(path, 0x1102)` (`O_RDWR|O_NOCTTY|0x1000`), `TCGETS`, applies the raw
+  masks (`c_iflag &= 0xfffffa14`, `c_oflag &= 0xfffffffe`, `c_lflag &=
+  0xffff7fb4`, `c_cflag = (c_cflag & 0xffffeec0) | 0x30 | speed`), `TCSETS`,
+  then returns a `java.io.FileDescriptor` with its `descriptor` int set.
+- One process-global fd: `open` stores it, `close` shuts it and returns 1.
+
+## ctprotocol library — port scoped, encode/decode open
+
+Lib name `sbxapplogic_ctprotocol_jni` (fallback `System.load
+("/system/lib/libsbxapplogic_ctprotocol_jni.so")`), bound to
+`SbxSppCommandManager` by static `Java_...` export name (no RegisterNatives).
+Full surface to rebuild:
+
+- **checksum**: `(0xFF - sum(bytes)) & 0xFF` (above).
+- **76 `Encode` builders**: fixed `5A <op> <sub> <payload>` templates with
+  little-endian args spliced in; mechanical to port from the decompilation.
+- **35 JNI wrappers**: marshal the Java args / `byte[]` and call the matching
+  `Encode::<cmd>`, returning the frame as a `byte[]` (or `decode`/sizes).
+- **`Decode::decode(Context*, uint8_t*, int)`**: one 7390-byte dispatcher that
+  validates `[5A][type][plen]` (`plen == len-3`), builds a typed `XxxMsg`, and
+  calls the registered listener.
+- **~27 listener upcalls**: `MsgListener` declares ~60 virtual `listen(XxxMsg)`
+  slots; `MyListener` overrides the ~27 the app consumes, each doing
+  `GetEnv` + `CallStaticVoidMethod` into a cached `SbxSppCommandManager`
+  static callback.
+- **`JNI_OnLoad`**: caches the `SbxSppCommandManager` global class ref and the
+  ~27 callback method IDs.
+
+### Inbound callback API (device response -> Java static method)
+
+`JNI_OnLoad` caches these `SbxSppCommandManager` static methods; `Decode`
+upcalls them with the parsed fields. Names + JNI signatures:
+
+```
+requestControlCallback          dataAckCallback            obsoleteAckCallback
+pendingAckCallback              fileAckCallback            deviceInfoCallback
+fwInfoCallback                  maxPlsCallback             hwBtnCallback
+audioCtrlCallback               audioLvlCallback           audioLvlRangeCallback
+batteryLevelSupportCallback     batteryLevelCallback       batteryStatusSupportCallback
+batteryStatusCallback           hwBtnSupportCallback       hwBtnStatusSupportCallback
+hwBtnEnabledCallback            sbxProfileInfoCallback     sbxProfileDataCallback
+btAutoConnectCallback           devicefwStringCallback     profileInfoRecFirstCallback
+profileInfoRestCallback         activeProfileRecCallback   activeProfileMegaCallback
+voicePromptCtrlCallback
+```
+
+Observed JNI signatures (map to the callbacks above): `(I)V`, `(IZ)V`,
+`(ZZ)V`, `(II)V`, `(III)V`, `(IIIII)V`, `(II[B)V`, `([I)V`, `(IFI)V`,
+`(IFFFIII)V`, `(IZZZZZZZ)V`, `(IIIZIZZIZ)V`, `(IIZIZZIZ)V`, `(Z)V`.
+
+### Verification without the device
+
+The Katana can't be paired right now (dead batteries, no working app), so the
+port can't be validated against real hardware. The APK ships `lib/x86/`, so the
+practical check is differential: build the reimplementation for x86, load it and
+the stock x86 `.so` in an Android x86 emulator, and compare `Encode` `byte[]`
+outputs and `decode` callback sequences for the same inputs. Encode diffs are
+exact; decode is checked by callback name + argument values.
 
 ## Command frame format
 
@@ -199,8 +260,12 @@ binding are visible by name.
 
 ## Next
 
-Reimplement the two libs for `arm64-v8a`: `libserialport_jni.so` from the
-public `android-serialport-api` source, and `libsbxapplogic_ctprotocol_jni.so`
-from the frame spec above (the Encode builders are mechanical given the opcode
-bytes; `Decode::decode` is the one large function to port faithfully). Build
-both with the NDK and drop them into the `arm64` patch overlay.
+`libserialport_jni.so` is done. For `libsbxapplogic_ctprotocol_jni.so`, port in
+this order under `patches/arm64/native/ctprotocol/`:
+
+1. `checksum` + the 76 `Encode` builders + the 35 JNI wrappers (encode path;
+   byte-exact against the decompilation, independently verifiable).
+2. `JNI_OnLoad` callback caching + `Decode::decode` + the ~27 `MyListener`
+   upcalls (decode path; verify differentially against the stock x86 lib).
+
+Build with the NDK (`patches/arm64/native/build.ps1`) into the `arm64` overlay.
