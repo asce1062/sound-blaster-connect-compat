@@ -410,3 +410,25 @@ _sbc_sub("${cm}"
          1)
 
 message(STATUS "modernize: runtime permission chain wired (BtPermCompat: stock -> Nearby Devices -> notifications, + discovery/bonded gates)")
+
+# ---------------------------------------------------------------------------
+# Notification-listener access prompt: suppressed. MainActivity.v() prompts
+# (MainActivity.w) for notification-listener access to feed the now-playing
+# metadata feature (LocalMusicRemoteControllerService), which drives the removed
+# android.media.RemoteController API and is inert on modern Android. The grant is
+# a system-level "read all notifications" permission that buys no working feature
+# here, and the system pane cannot be reduced to a single focused toggle on Samsung
+# (OneUI renders the per-app deep-link as the full listener list) nor made to return
+# to the app afterward (API 34+ background-activity-launch forbids a listener service
+# from foregrounding an activity). Drop the call to w() so the dialog never fires;
+# the Bluetooth/notification runtime-permission chain above is unaffected.
+# ---------------------------------------------------------------------------
+set(ma "${TREE}/smali/com/creative/apps/sbconnect/MainActivity.smali")
+
+# v(): keep the accessibility check/logging, drop the w() prompt invocation.
+_sbc_sub("${ma}"
+         "    if-nez v0, :cond_0\n\n    invoke-direct {p0}, Lcom/creative/apps/sbconnect/MainActivity;->w()V\n\n    goto :goto_0"
+         "    if-nez v0, :cond_0\n\n    goto :goto_0"
+         1)
+
+message(STATUS "modernize: notification-listener access prompt suppressed (inert RemoteController feature)")
