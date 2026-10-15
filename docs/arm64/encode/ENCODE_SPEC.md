@@ -111,17 +111,51 @@ the size written LE32. Only `a==1` emits a frame.
   `off in {0x80, 0x81, 0x82}` (else 0x9d) - the JNI flag only produces
   0x80 / 0x81.
 
-### Complex builder (pending valid-input capture)
+### Complex builder (`setMalcolmParam`)
 
-`setMalcolmParam([I gains, [I subIds, [F coeffs, int count, [I outFreqs, [I outN)`
--> `Encode::setMalcolmParam`. Builds one or more `5a 12 ...` group frames,
-chunking `count` params into groups of a computed size (<= 0x2a per group, 6
-bytes/param: `subId`, packed, 4-byte float LE), writing the realized frame
-layout and returning group counts via the two output arrays. The stock harness
-vectors `v1`/`v2` passed empty/short arrays and were rejected (empty frame);
-valid-domain vectors require non-null gains/subIds/coeffs and `count>=1`.
-Marshalling and group math to be pinned against the oracle in the
-`setMalcolmParam` capture pass before it is implemented.
+`setMalcolmParam([I a, [I b, [F c, int d, [I e)` -> `Encode::setMalcolmParam`.
+Pinned against the oracle (`gid_*`, `sub97_*`, `f95*`, `grp_*` vectors) and the
+x86 decompilation (`Encode::setMalcolmParam` @ 0x17200, validator
+`FUN_000159e0` @ 0x159e0).
+
+**Arrays.** `a[i]` = parameter group id, `b[i]` = sub-index within the group,
+`c[i]` = float value. The JNI wrapper requires
+`a.length == b.length == c.length == N`; any mismatch returns an empty `byte[]`
+(marshalling guard, confirmed by `len_mismatch`). `e` must have length >= 2; on
+success it receives `[lastGroupBytes, groupCount]` (the `e=` field in the
+corpus). `d` is the group-size seed, not a wire field.
+
+**Group-splitting.** Group size `gs` and per-full-group byte size `gb`:
+
+- `d < 16` -> `gs = 2`, `gb = 16`;
+- else `gs = (d - 1) / 6`; if `gs < 43` then `gb = gs*6 + 4`, else `gs = 42`,
+  `gb = 256`.
+
+Then `full = N / gs`, `rem = N % gs`. Output is `full` frames of `gs` params
+followed, if `rem != 0`, by one frame of `rem` params. Each group frame is
+`5a 12 <cnt*6+1> <cnt>` then `cnt` params; each param is 6 bytes
+`<a[i]&0xff> <b[i]&0xff> <c[i] float32 LE>`. Emitted length =
+`full*gb + (rem ? rem*6+4 : 0)`. `N == 0` emits a 0-length frame via the success
+path with `e = [gb, 0]` (`grp_n0`). `e[0]` = byte size of the last emitted group
+(`gb`, or `rem*6+4` when a remainder frame exists); `e[1] = full + (rem != 0)`.
+
+**Per-param validation (`FUN_000159e0(a[i], b[i], c[i])`).** Returns 0 (accept)
+or non-zero (reject -> whole call emits an empty frame):
+
+- group id `a[i]` must be one of `0x49, 0x8f, 0x95, 0x96, 0x97` (else `0x18`);
+  the full int is compared, so `0x195` is rejected though its low byte is `0x95`
+  (`gid_0x195`).
+- sub-index `b[i]` must be a case the group defines (else `0x19`).
+- `c[i]` must lie in that `(group, sub)` float domain (else `0x2f`). Boolean
+  fields accept only `{0.0, 1.0}`; continuous fields use the rodata bounds at
+  `.rodata` `0x13ae4..0x13b58` (image base 0x10000), e.g. `0x95/1 -> [0, 11.66]`
+  (`DAT_00023aec = 11.6599998`), `0x49/1 -> [1.0, 20.0]`. The full switch and its
+  30 float constants are reproduced verbatim in `ctprotocol-core`.
+
+The builder's own null guards (`0x1b` count<0, `0x1c`/`0x1d`/`0x23` for null
+`a`/`b`/`c`, `0x24`/`0x25` for null `e` outputs) are not reachable from the Java
+path without the JNI array marshalling aborting first, so they carry no oracle
+vector.
 
 ## Scalar getter (not a frame)
 

@@ -118,13 +118,30 @@ public class SbxSppCommandManager {
         System.out.println("ENC " + name + " " + argspec + " = " + hex(out));
     }
 
+    // setMalcolmParam with explicit arrays; prints frame bytes plus the two
+    // output ints the stock wrapper writes back into e on success.
+    private static void smp(String label, int[] a, int[] b, float[] c, int d) {
+        int[] e = new int[] { 0, 0 };
+        byte[] out = setMalcolmParam(a, b, c, d, e);
+        System.out.println("ENC setMalcolmParam " + label + " = " + hex(out)
+                           + " e=" + e[0] + "," + e[1]);
+    }
+
+    // n params all (group, sub, val); isolates the group-splitting math.
+    private static void smpRep(String label, int group, int sub, float val, int n, int d) {
+        int[] a = new int[n]; int[] b = new int[n]; float[] c = new float[n];
+        for (int i = 0; i < n; i++) { a[i] = group; b[i] = sub; c[i] = val; }
+        smp(label, a, b, c, d);
+    }
+
     public static void main(String[] args) throws Exception {
         String lib = args[0];
         String mode = args.length > 1 ? args[1] : "enc";
         System.load(lib);
 
         if (mode.equals("enc")) {
-            // Deterministic encode vectors. No-arg builders:
+            // ===== Canonical encode vectors =====
+            // No-arg builders (constant frames):
             enc("cancelFileTransfer", "-", cancelFileTransfer());
             enc("commitSettings", "-", commitSettings());
             enc("getActiveProfileMega", "-", getActiveProfileMega());
@@ -147,36 +164,101 @@ public class SbxSppCommandManager {
             enc("resetFactoryDefault", "-", resetFactoryDefault());
             System.out.println("INT getFileTransferMaxDataSize - = " + getFileTransferMaxDataSize());
 
-            // Single-int builders, swept across representative values:
-            int[] vals = { 0, 1, 2, 3, 0x7f, 0x80, 0xff };
-            for (int v : vals) enc("getAudioLvl", "" + v, getAudioLvl(v));
-            for (int v : vals) enc("getFwInfo", "" + v, getFwInfo(v));
-            for (int v : vals) enc("setActiveProfileMega", "" + v, setActiveProfileMega(v));
-            for (int v : vals) enc("setActiveProfileMegaVoicePreview", "" + v, setActiveProfileMegaVoicePreview(v));
-            for (int v : vals) enc("setActiveProfileRec", "" + v, setActiveProfileRec(v));
-            for (int v : vals) enc("setActiveProfileRecVoicePreview", "" + v, setActiveProfileRecVoicePreview(v));
-            for (int v : vals) enc("setBtAutoConnect", "" + v, setBtAutoConnect(v));
-            for (int v : vals) enc("setVoicePromptCtrl", "" + v, setVoicePromptCtrl(v));
-            int[] times = { 0, 1, 0x100, 0x12345678, 0x7fffffff };
+            // One-int builders with a 0..255 domain: min-1/min/min+1/rep/max-1/max/max+1.
+            int[] byteDom = { -1, 0, 1, 0x40, 0xfe, 0xff, 0x100, 0x101 };
+            for (int v : byteDom) enc("getAudioLvl", "" + v, getAudioLvl(v));
+            for (int v : byteDom) enc("getFwInfo", "" + v, getFwInfo(v));
+            for (int v : byteDom) enc("setActiveProfileMega", "" + v, setActiveProfileMega(v));
+            for (int v : byteDom) enc("setActiveProfileMegaVoicePreview", "" + v, setActiveProfileMegaVoicePreview(v));
+            for (int v : byteDom) enc("setActiveProfileRec", "" + v, setActiveProfileRec(v));
+            for (int v : byteDom) enc("setActiveProfileRecVoicePreview", "" + v, setActiveProfileRecVoicePreview(v));
+
+            // Enumerated small domains, with out-of-range neighbours.
+            int[] btDom = { -1, 0, 1, 2 };
+            for (int v : btDom) enc("setBtAutoConnect", "" + v, setBtAutoConnect(v));
+            int[] vpDom = { -1, 0, 1, 2, 3 };
+            for (int v : vpDom) enc("setVoicePromptCtrl", "" + v, setVoicePromptCtrl(v));
+
+            // setTime: no validation; full int32 round-trip incl. sign boundaries.
+            int[] times = { 0, 1, 0x100, 0x12345678, 0x7fffffff, 0x80000000, 0xffffffff };
             for (int v : times) enc("setTime", String.format("%08x", v), setTime(v));
 
-            // Two-int builders:
-            int[][] pairs = { {0,0},{1,2},{0x80,3},{0xff,0xff},{0x1234,0x40} };
-            for (int[] p : pairs) enc("setFileSize", p[0]+","+p[1], setFileSize(p[0], p[1]));
-            for (int[] p : pairs) enc("setHwBtn", p[0]+","+p[1], setHwBtn(p[0], p[1]));
+            // setHwBtn(id,val): id in 1..20, val in {0,1}. Sweep each axis past its bound.
+            int[] hwId = { 0, 1, 2, 19, 20, 21 };
+            for (int id : hwId) enc("setHwBtn", id + ",1", setHwBtn(id, 1));
+            int[] hwVal = { -1, 0, 1, 2 };
+            for (int val : hwVal) enc("setHwBtn", "1," + val, setHwBtn(1, val));
+            enc("setHwBtn", "10,0", setHwBtn(10, 0));
 
-            // getFileDataBlk(data, len, bool): fixed data block.
-            byte[] blk = new byte[0x40];
+            // setFileSize(a,b): only a==1 emits; b is an LE32 size.
+            int[] fsA = { 0, 1, 2 };
+            for (int a : fsA) enc("setFileSize", a + ",2", setFileSize(a, 2));
+            int[] fsB = { 0, 1, 0x100, 0x12345678, 0xffffffff };
+            for (int b : fsB) enc("setFileSize", "1," + b, setFileSize(1, b));
+
+            // getFileDataBlk(data,len,flag): len in 1..253, flag -> off 0x80/0x81.
+            byte[] blk = new byte[0x100];
             for (int i = 0; i < blk.length; i++) blk[i] = (byte) i;
-            enc("getFileDataBlk", "0x40,false", getFileDataBlk(blk, 0x40, false));
+            int[] blkLen = { 0, 1, 2, 0x40, 0xfc, 0xfd, 0xfe };
+            for (int L : blkLen) enc("getFileDataBlk", L + ",false", getFileDataBlk(blk, L, false));
             enc("getFileDataBlk", "0x40,true", getFileDataBlk(blk, 0x40, true));
-            enc("getFileDataBlk", "0x10,false", getFileDataBlk(blk, 0x10, false));
+            enc("getFileDataBlk", "0x01,true", getFileDataBlk(blk, 1, true));
 
-            // setMalcolmParam(int[] a, int[] b, float[] c, int d, int[] e): small fixed vectors.
-            enc("setMalcolmParam", "v1",
-                setMalcolmParam(new int[]{1,2}, new int[]{3,4}, new float[]{1.5f,-2.0f}, 2, new int[]{5,6}));
-            enc("setMalcolmParam", "v2",
-                setMalcolmParam(new int[]{0}, new int[]{0}, new float[]{0.0f}, 1, new int[]{0}));
+            // ===== setMalcolmParam: marshalling, validator domain, grouping =====
+            // Unconditionally-accepted param (group 0x97 sub 2 ignores the float):
+            // group-splitting across count and the group-size divisor d.
+            smpRep("grp_n0", 0x97, 2, 0.0f, 0, 0);     // count 0 -> empty via success path
+            smpRep("grp_n1_d0", 0x97, 2, 0.0f, 1, 0);  // gs=2: one remainder group of 1
+            smpRep("grp_n2_d0", 0x97, 2, 0.0f, 2, 0);  // gs=2: one full group of 2
+            smpRep("grp_n3_d0", 0x97, 2, 0.0f, 3, 0);  // gs=2: full(2)+rem(1)
+            smpRep("grp_n5_d0", 0x97, 2, 0.0f, 5, 0);  // gs=2: full,full,rem(1)
+            smpRep("grp_n5_d16", 0x97, 2, 0.0f, 5, 16);// gs=(16-1)/6=2
+            smpRep("grp_n7_d43", 0x97, 2, 0.0f, 7, 43);// gs=(43-1)/6=7: one full group of 7
+            smpRep("grp_n8_d43", 0x97, 2, 0.0f, 8, 43);// gs=7: full(7)+rem(1)
+            smpRep("grp_n1_d259", 0x97, 2, 0.0f, 1, 259); // gs clamps to 42
+
+            // Group-ID membership boundary (validator param_1):
+            smp("gid_0x48", new int[]{0x48}, new int[]{1}, new float[]{0.0f}, 0); // reject 0x18
+            smp("gid_0x49", new int[]{0x49}, new int[]{1}, new float[]{10.0f}, 0);// accept [1,20]
+            smp("gid_0x49_sub0", new int[]{0x49}, new int[]{0}, new float[]{10.0f}, 0); // 0x19
+            smp("gid_0x4a", new int[]{0x4a}, new int[]{1}, new float[]{0.0f}, 0); // reject 0x18
+            smp("gid_0x8f", new int[]{0x8f}, new int[]{0}, new float[]{1.0f}, 0); // accept {0,1}
+            smp("gid_0x8f_sub1", new int[]{0x8f}, new int[]{1}, new float[]{1.0f}, 0); // 0x19
+            smp("gid_0x95", new int[]{0x95}, new int[]{1}, new float[]{5.0f}, 0);  // accept [0,11.66]
+            smp("gid_0x96", new int[]{0x96}, new int[]{0x1e}, new float[]{7.0f}, 0); // accept any
+            smp("gid_0x97", new int[]{0x97}, new int[]{2}, new float[]{0.0f}, 0);  // accept any
+            smp("gid_0x98", new int[]{0x98}, new int[]{0}, new float[]{0.0f}, 0);  // reject 0x18
+            smp("gid_0x195", new int[]{0x195}, new int[]{1}, new float[]{0.0f}, 0);// full-int check -> 0x18
+
+            // Sub-index boundary within group 0x97:
+            int[] sub97 = { 0, 1, 2, 8, 9 };
+            for (int s : sub97) smp("sub97_" + s, new int[]{0x97}, new int[]{s}, new float[]{0.0f}, 0);
+
+            // Float-range boundary, continuous range (group 0x95 sub 1 -> [0, 11.66]):
+            float[] rng = { -0.01f, 0.0f, 0.01f, 5.0f, 11.65f, 11.66f, 11.67f };
+            for (int i = 0; i < rng.length; i++)
+                smp("f95s1_" + i, new int[]{0x95}, new int[]{1}, new float[]{rng[i]}, 0);
+            // Float-range boundary, boolean field (group 0x95 sub 0 -> {0.0,1.0}):
+            float[] bl = { -1.0f, 0.0f, 0.5f, 1.0f, 2.0f };
+            for (int i = 0; i < bl.length; i++)
+                smp("f95s0_" + i, new int[]{0x95}, new int[]{0}, new float[]{bl[i]}, 0);
+
+            // Mixed multi-param: valid + one invalid -> whole call rejected.
+            smp("mix_reject", new int[]{0x97, 0x48}, new int[]{2, 0}, new float[]{0.0f, 0.0f}, 0);
+            // Length mismatch between the three arrays -> empty (marshalling guard).
+            smp("len_mismatch", new int[]{0x97, 0x97}, new int[]{2}, new float[]{0.0f}, 0);
+
+            // ===== Statefulness controls =====
+            // (1) same call repeated:
+            for (int i = 0; i < 3; i++) enc("STATE_repeat_getGeneralInfo", "#" + i, getGeneralInfo());
+            for (int i = 0; i < 3; i++) enc("STATE_repeat_setTime", "#" + i, setTime(0x12345678));
+            for (int i = 0; i < 3; i++) smpRep("STATE_repeat_smp#" + i, 0x97, 2, 0.0f, 3, 0);
+            // (2) unrelated calls interleaved around a fixed probe:
+            enc("STATE_inter_probe", "a", getGeneralInfo());
+            setTime(5);
+            enc("STATE_inter_probe", "b", getGeneralInfo());
+            smpRep("STATE_inter_smp", 0x97, 2, 0.0f, 3, 0);
+            enc("STATE_inter_probe", "c", getGeneralInfo());
         } else if (mode.equals("dec")) {
             // Decode corpus: one hex frame per line in args[2].
             BufferedReader r = new BufferedReader(new FileReader(args[2]));

@@ -19,80 +19,148 @@ ENC hwBtnEnabled - = 5a260104
 ENC releaseControl - = 5a060100
 ENC resetFactoryDefault - = 5a9b0101
 INT getFileTransferMaxDataSize - = 253
+ENC getAudioLvl -1 = 
 ENC getAudioLvl 0 = 5a230401000000
 ENC getAudioLvl 1 = 5a230401010000
-ENC getAudioLvl 2 = 5a230401020000
-ENC getAudioLvl 3 = 5a230401030000
-ENC getAudioLvl 127 = 5a2304017f0000
-ENC getAudioLvl 128 = 5a230401800000
+ENC getAudioLvl 64 = 5a230401400000
+ENC getAudioLvl 254 = 5a230401fe0000
 ENC getAudioLvl 255 = 5a230401ff0000
+ENC getAudioLvl 256 = 
+ENC getAudioLvl 257 = 
+ENC getFwInfo -1 = 
 ENC getFwInfo 0 = 5a07020100
 ENC getFwInfo 1 = 5a07020101
-ENC getFwInfo 2 = 5a07020102
-ENC getFwInfo 3 = 5a07020103
-ENC getFwInfo 127 = 5a0702017f
-ENC getFwInfo 128 = 5a07020180
+ENC getFwInfo 64 = 5a07020140
+ENC getFwInfo 254 = 5a070201fe
 ENC getFwInfo 255 = 5a070201ff
+ENC getFwInfo 256 = 
+ENC getFwInfo 257 = 
+ENC setActiveProfileMega -1 = 
 ENC setActiveProfileMega 0 = 5a1a03000200
 ENC setActiveProfileMega 1 = 5a1a03000201
-ENC setActiveProfileMega 2 = 5a1a03000202
-ENC setActiveProfileMega 3 = 5a1a03000203
-ENC setActiveProfileMega 127 = 5a1a0300027f
-ENC setActiveProfileMega 128 = 5a1a03000280
+ENC setActiveProfileMega 64 = 5a1a03000240
+ENC setActiveProfileMega 254 = 5a1a030002fe
 ENC setActiveProfileMega 255 = 5a1a030002ff
+ENC setActiveProfileMega 256 = 
+ENC setActiveProfileMega 257 = 
+ENC setActiveProfileMegaVoicePreview -1 = 
 ENC setActiveProfileMegaVoicePreview 0 = 5a1a03020200
 ENC setActiveProfileMegaVoicePreview 1 = 5a1a03020201
-ENC setActiveProfileMegaVoicePreview 2 = 5a1a03020202
-ENC setActiveProfileMegaVoicePreview 3 = 5a1a03020203
-ENC setActiveProfileMegaVoicePreview 127 = 5a1a0302027f
-ENC setActiveProfileMegaVoicePreview 128 = 5a1a03020280
+ENC setActiveProfileMegaVoicePreview 64 = 5a1a03020240
+ENC setActiveProfileMegaVoicePreview 254 = 5a1a030202fe
 ENC setActiveProfileMegaVoicePreview 255 = 5a1a030202ff
+ENC setActiveProfileMegaVoicePreview 256 = 
+ENC setActiveProfileMegaVoicePreview 257 = 
+ENC setActiveProfileRec -1 = 
 ENC setActiveProfileRec 0 = 5a1a03000100
 ENC setActiveProfileRec 1 = 5a1a03000101
-ENC setActiveProfileRec 2 = 5a1a03000102
-ENC setActiveProfileRec 3 = 5a1a03000103
-ENC setActiveProfileRec 127 = 5a1a0300017f
-ENC setActiveProfileRec 128 = 5a1a03000180
+ENC setActiveProfileRec 64 = 5a1a03000140
+ENC setActiveProfileRec 254 = 5a1a030001fe
 ENC setActiveProfileRec 255 = 5a1a030001ff
+ENC setActiveProfileRec 256 = 
+ENC setActiveProfileRec 257 = 
+ENC setActiveProfileRecVoicePreview -1 = 
 ENC setActiveProfileRecVoicePreview 0 = 5a1a03020100
 ENC setActiveProfileRecVoicePreview 1 = 5a1a03020101
-ENC setActiveProfileRecVoicePreview 2 = 5a1a03020102
-ENC setActiveProfileRecVoicePreview 3 = 5a1a03020103
-ENC setActiveProfileRecVoicePreview 127 = 5a1a0302017f
-ENC setActiveProfileRecVoicePreview 128 = 5a1a03020180
+ENC setActiveProfileRecVoicePreview 64 = 5a1a03020140
+ENC setActiveProfileRecVoicePreview 254 = 5a1a030201fe
 ENC setActiveProfileRecVoicePreview 255 = 5a1a030201ff
+ENC setActiveProfileRecVoicePreview 256 = 
+ENC setActiveProfileRecVoicePreview 257 = 
+ENC setBtAutoConnect -1 = 
 ENC setBtAutoConnect 0 = 5a31020000
 ENC setBtAutoConnect 1 = 5a31020001
 ENC setBtAutoConnect 2 = 
-ENC setBtAutoConnect 3 = 
-ENC setBtAutoConnect 127 = 
-ENC setBtAutoConnect 128 = 
-ENC setBtAutoConnect 255 = 
+ENC setVoicePromptCtrl -1 = 
 ENC setVoicePromptCtrl 0 = 5a99020000
 ENC setVoicePromptCtrl 1 = 5a99020001
 ENC setVoicePromptCtrl 2 = 5a99020002
 ENC setVoicePromptCtrl 3 = 
-ENC setVoicePromptCtrl 127 = 
-ENC setVoicePromptCtrl 128 = 
-ENC setVoicePromptCtrl 255 = 
 ENC setTime 00000000 = 5a3b0400000000
 ENC setTime 00000001 = 5a3b0401000000
 ENC setTime 00000100 = 5a3b0400010000
 ENC setTime 12345678 = 5a3b0478563412
 ENC setTime 7fffffff = 5a3b04ffffff7f
-ENC setFileSize 0,0 = 
-ENC setFileSize 1,2 = 5a98050102000000
-ENC setFileSize 128,3 = 
-ENC setFileSize 255,255 = 
-ENC setFileSize 4660,64 = 
-ENC setHwBtn 0,0 = 
+ENC setTime 80000000 = 5a3b0400000080
+ENC setTime ffffffff = 5a3b04ffffffff
+ENC setHwBtn 0,1 = 
+ENC setHwBtn 1,1 = 5a2603000101
+ENC setHwBtn 2,1 = 5a2603000201
+ENC setHwBtn 19,1 = 5a2603001301
+ENC setHwBtn 20,1 = 5a2603001401
+ENC setHwBtn 21,1 = 
+ENC setHwBtn 1,-1 = 
+ENC setHwBtn 1,0 = 5a2603000100
+ENC setHwBtn 1,1 = 5a2603000101
 ENC setHwBtn 1,2 = 
-ENC setHwBtn 128,3 = 
-ENC setHwBtn 255,255 = 
-ENC setHwBtn 4660,64 = 
-ENC getFileDataBlk 0x40,false = 5a98428040000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f
+ENC setHwBtn 10,0 = 5a2603000a00
+ENC setFileSize 0,2 = 
+ENC setFileSize 1,2 = 5a98050102000000
+ENC setFileSize 2,2 = 
+ENC setFileSize 1,0 = 5a98050100000000
+ENC setFileSize 1,1 = 5a98050101000000
+ENC setFileSize 1,256 = 5a98050100010000
+ENC setFileSize 1,305419896 = 5a98050178563412
+ENC setFileSize 1,-1 = 5a980501ffffffff
+ENC getFileDataBlk 0,false = 
+ENC getFileDataBlk 1,false = 5a9803800100
+ENC getFileDataBlk 2,false = 5a980480020001
+ENC getFileDataBlk 64,false = 5a98428040000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f
+ENC getFileDataBlk 252,false = 5a98fe80fc000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafb
+ENC getFileDataBlk 253,false = 5a98ff80fd000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfc
+ENC getFileDataBlk 254,false = 
 ENC getFileDataBlk 0x40,true = 5a98428140000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f
-ENC getFileDataBlk 0x10,false = 5a98128010000102030405060708090a0b0c0d0e0f
-ENC setMalcolmParam v1 = 
-ENC setMalcolmParam v2 = 
+ENC getFileDataBlk 0x01,true = 5a9803810100
+ENC setMalcolmParam grp_n0 =  e=16,0
+ENC setMalcolmParam grp_n1_d0 = 5a120701970200000000 e=10,1
+ENC setMalcolmParam grp_n2_d0 = 5a120d02970200000000970200000000 e=16,1
+ENC setMalcolmParam grp_n3_d0 = 5a120d029702000000009702000000005a120701970200000000 e=10,2
+ENC setMalcolmParam grp_n5_d0 = 5a120d029702000000009702000000005a120d029702000000009702000000005a120701970200000000 e=10,3
+ENC setMalcolmParam grp_n5_d16 = 5a120d029702000000009702000000005a120d029702000000009702000000005a120701970200000000 e=10,3
+ENC setMalcolmParam grp_n7_d43 = 5a122b07970200000000970200000000970200000000970200000000970200000000970200000000970200000000 e=46,1
+ENC setMalcolmParam grp_n8_d43 = 5a122b079702000000009702000000009702000000009702000000009702000000009702000000009702000000005a120701970200000000 e=10,2
+ENC setMalcolmParam grp_n1_d259 = 5a120701970200000000 e=10,1
+ENC setMalcolmParam gid_0x48 =  e=0,0
+ENC setMalcolmParam gid_0x49 = 5a120701490100002041 e=10,1
+ENC setMalcolmParam gid_0x49_sub0 =  e=0,0
+ENC setMalcolmParam gid_0x4a =  e=0,0
+ENC setMalcolmParam gid_0x8f = 5a1207018f000000803f e=10,1
+ENC setMalcolmParam gid_0x8f_sub1 =  e=0,0
+ENC setMalcolmParam gid_0x95 = 5a12070195010000a040 e=10,1
+ENC setMalcolmParam gid_0x96 = 5a120701961e0000e040 e=10,1
+ENC setMalcolmParam gid_0x97 = 5a120701970200000000 e=10,1
+ENC setMalcolmParam gid_0x98 =  e=0,0
+ENC setMalcolmParam gid_0x195 =  e=0,0
+ENC setMalcolmParam sub97_0 = 5a120701970000000000 e=10,1
+ENC setMalcolmParam sub97_1 = 5a120701970100000000 e=10,1
+ENC setMalcolmParam sub97_2 = 5a120701970200000000 e=10,1
+ENC setMalcolmParam sub97_8 = 5a120701970800000000 e=10,1
+ENC setMalcolmParam sub97_9 =  e=0,0
+ENC setMalcolmParam f95s1_0 =  e=0,0
+ENC setMalcolmParam f95s1_1 = 5a120701950100000000 e=10,1
+ENC setMalcolmParam f95s1_2 = 5a12070195010ad7233c e=10,1
+ENC setMalcolmParam f95s1_3 = 5a12070195010000a040 e=10,1
+ENC setMalcolmParam f95s1_4 = 5a120701950166663a41 e=10,1
+ENC setMalcolmParam f95s1_5 = 5a12070195015c8f3a41 e=10,1
+ENC setMalcolmParam f95s1_6 =  e=0,0
+ENC setMalcolmParam f95s0_0 =  e=0,0
+ENC setMalcolmParam f95s0_1 = 5a120701950000000000 e=10,1
+ENC setMalcolmParam f95s0_2 =  e=0,0
+ENC setMalcolmParam f95s0_3 = 5a12070195000000803f e=10,1
+ENC setMalcolmParam f95s0_4 =  e=0,0
+ENC setMalcolmParam mix_reject =  e=0,0
+ENC setMalcolmParam len_mismatch =  e=0,0
+ENC STATE_repeat_getGeneralInfo #0 = 5a070100
+ENC STATE_repeat_getGeneralInfo #1 = 5a070100
+ENC STATE_repeat_getGeneralInfo #2 = 5a070100
+ENC STATE_repeat_setTime #0 = 5a3b0478563412
+ENC STATE_repeat_setTime #1 = 5a3b0478563412
+ENC STATE_repeat_setTime #2 = 5a3b0478563412
+ENC setMalcolmParam STATE_repeat_smp#0 = 5a120d029702000000009702000000005a120701970200000000 e=10,2
+ENC setMalcolmParam STATE_repeat_smp#1 = 5a120d029702000000009702000000005a120701970200000000 e=10,2
+ENC setMalcolmParam STATE_repeat_smp#2 = 5a120d029702000000009702000000005a120701970200000000 e=10,2
+ENC STATE_inter_probe a = 5a070100
+ENC STATE_inter_probe b = 5a070100
+ENC setMalcolmParam STATE_inter_smp = 5a120d029702000000009702000000005a120701970200000000 e=10,2
+ENC STATE_inter_probe c = 5a070100
 DONE
