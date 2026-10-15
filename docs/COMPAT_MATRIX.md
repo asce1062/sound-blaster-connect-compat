@@ -3,7 +3,8 @@
 Where each variant stands, and the per-change ledger for `modernize`. This
 lane is limited to devices that can execute the original 32-bit native
 libraries; **no arm64 support is claimed**. See `PIPELINE.md` for hashes,
-signing and the native-library byte-identity evidence.
+signing, and the payload-identity evidence (`resign` is proven SHA-256
+payload-identical to stock per entry).
 
 ## Device / OS matrix
 
@@ -29,9 +30,9 @@ Notes:
   over time.
 - Android 14's "cannot install apps that target below API 23" rule does not hit
   either variant (resign targets 26, modernize 34).
-- **Verification is structural** (aapt2 / apksigner / zip CRC). No 32-bit
-  Android 13/14 device was attached, so "install + run" above is the
-  Android-defined expectation, not a hardware-observed result.
+- **Verification is structural** (aapt2 / apksigner; per-entry SHA-256 for
+  `resign`). No 32-bit Android 13/14 device was attached, so "install + run"
+  above is the Android-defined expectation, not a hardware-observed result.
 
 ## modernize ledger
 
@@ -76,7 +77,8 @@ patched around:
    framework predates API 31 -> the attribute was dropped (recorded above), not
    forced.
 
-The one finding that is a genuine boundary, not a failure, is that the
-apktool-based `resign` re-encodes resources and dex (semantic control, not
-byte-level control). It is documented in `PIPELINE.md` under *Open decision*
-rather than worked around.
+An earlier apktool-based `resign` re-encoded resources and dex (a semantic
+control, not payload-preserving). That boundary was resolved, not worked
+around: `resign` now copies the stock archive and re-signs it directly, and the
+build proves per-entry SHA-256 payload identity to stock. See `PIPELINE.md`,
+*resign — payload-preserving* and *Design note*.

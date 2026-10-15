@@ -13,9 +13,12 @@ project(
 #
 #   1. configure  verify the input APK, fetch + verify apktool + signer,
 #                 decode => decompiled/ (pristine)
-#   2. build      per variant: fresh copy of decompiled/, apply the variant's
-#                 patch set (overlay files + optional patch.cmake edits),
-#                 apktool b, then zipalign + sign (uber-apk-signer debug key)
+#   2. build      modernize/arm64: fresh copy of decompiled/, apply the
+#                 variant's patch set (overlay files + optional patch.cmake
+#                 edits), apktool b, then sign (uber-apk-signer debug key).
+#                 resign: NOT via apktool — copy the stock archive verbatim
+#                 (align once only if needed) and re-sign, then prove the
+#                 payload is SHA-256 identical to stock (see below).
 #   3. deploy     adb install one signed variant, launch it, tail logcat
 #
 # decompiled/ is PRISTINE: patches never touch it. Every variant builds from
@@ -25,12 +28,14 @@ project(
 # A "variant" is one output APK = one patch set. The two deliverables are
 # MUTUALLY EXCLUSIVE outputs built side by side in a single configure:
 #
-#   resign     no code changes at all. Stock app, rebuilt and re-signed with
-#              a debug key so it sideloads. Bypasses the Play Store listing
-#              filter; runs on any modern phone that still has 32-bit support.
-#   modernize  resign + targetSdk raised and the Android 12/13/14 behavior
-#              changes that follow (see patches/modernize/). More modern,
-#              more smali surgery, more risk.
+#   resign     payload-preserving signing control. The stock archive is copied
+#              verbatim and re-signed with a debug key so it sideloads; no
+#              resource, manifest, or dex bytes are re-encoded. Bypasses the
+#              Play Store listing filter; runs on any modern phone that still
+#              has 32-bit support.
+#   modernize  stock + targetSdk raised and the Android 12/13/14 behavior
+#              changes that follow (see patches/modernize/). Decode->rebuild
+#              via apktool; more smali surgery, more risk.
 #
 # Neither reaches a 64-bit-only device (Pixel 7/8): both still ship only the
 # stock 32-bit native libs. arm64-v8a support is the separate native track
@@ -69,6 +74,9 @@ set(apktool_jobs
 set(java_bin
     "java"
     CACHE FILEPATH "Java binary (17+; apktool 3.x requires it)")
+set(zipalign_bin
+    "zipalign"
+    CACHE FILEPATH "zipalign binary (Android build-tools; resign alignment check)")
 set(adb_bin
     "adb"
     CACHE FILEPATH "adb binary (deploy)")
@@ -91,6 +99,9 @@ set(apktool_jar "${tools_dir}/apktool_${apktool_version}.jar")
 set(signer_jar "${tools_dir}/uber-apk-signer-${uber_signer_version}.jar")
 set(apply_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_patch.cmake")
 set(deploy_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_apk.cmake")
+set(resign_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/resign_control.cmake")
+set(resign_verify_script
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/resign_verify.cmake")
 set(stamp_decompiled "${CMAKE_CURRENT_BINARY_DIR}/decompiled.stamp")
 
 set(apktool_url
@@ -232,11 +243,14 @@ file(
 
 include(cmake/sbc_patches.cmake)
 
-# resign    pure repackage, no patches (empty set).
-# modernize targetSdk bump + Android 12/13/14 behavior fixes.
+# resign    payload-preserving signing control. NOT routed through apktool:
+#           the stock archive is copied verbatim (aligned once only if needed)
+#           and re-signed, then proven SHA-256 payload-identical to stock. This
+#           isolates signing/distribution from every other change.
+# modernize targetSdk bump + Android 12/13/14 behavior fixes (decode->rebuild).
 # arm64     native 64-bit track; built on the modernize base once its libs
 #           exist. Registered here so neither track edits this file again.
-sbc_add_variant(resign PATCHES "")
+sbc_add_resign_control(resign)
 sbc_add_variant(modernize PATCHES modernize)
 sbc_add_variant(arm64 PATCHES modernize arm64)
 
