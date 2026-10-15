@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 22, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "decode + fetch tools",
+      "description": "Verify the input APK, fetch apktool + uber-apk-signer, decode to decompiled/",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "apks",
+      "displayName": "build all variant APKs",
+      "configurePreset": "default",
+      "targets": ["apks"]
+    },
+    {
+      "name": "resign",
+      "displayName": "build the resign APK only",
+      "configurePreset": "default",
+      "targets": ["apk-resign"]
+    },
+    {
+      "name": "modernize",
+      "displayName": "build the modernize APK only",
+      "configurePreset": "default",
+      "targets": ["apk-modernize"]
+    }
+  ]
+}

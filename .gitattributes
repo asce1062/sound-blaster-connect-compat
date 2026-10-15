@@ -1,0 +1,7 @@
+# Normalize line endings for text sources (Windows checkout, LF in repo).
+*.cmake    text eol=lf
+*.md       text eol=lf
+*.py       text eol=lf
+*.json     text eol=lf
+*.yml      text eol=lf
+CMakeLists.txt text eol=lf
