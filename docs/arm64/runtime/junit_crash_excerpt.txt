@@ -1,0 +1,13 @@
+# junit.framework.Assert crash (pre-fix) - arm64 Pixel 7a, SDK 33
+# Reproduced by opening 'See All' / 'Blaster Experience' preset lists.
+# Captured before adding <uses-library android:name="android.test.base">.
+
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: FATAL EXCEPTION: main
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: Process: com.creative.apps.sbconnect, PID: 8690
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: java.lang.NoClassDefFoundError: Failed resolution of: Ljunit/framework/Assert;
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: 	at com.creative.apps.sbconnect.Utils.b(Unknown Source:0)
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: 	at com.creative.apps.sbconnect.SbxModifiableProfileMainFragment$ProfileListAdapter.a(Unknown Source:131)
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: 	at com.creative.apps.sbconnect.SbxModifiableProfileMainFragment$ProfileListAdapter.onBindViewHolder(Unknown Source:2)
+	... (framework measure/layout frames elided) ...
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: Caused by: java.lang.ClassNotFoundException: junit.framework.Assert
+10-15 15:27:06.468  8690  8690 E AndroidRuntime: 	... 81 more

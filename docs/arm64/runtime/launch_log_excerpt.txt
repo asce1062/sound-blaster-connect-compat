@@ -1,0 +1,30 @@
+10-15 15:20:35.302 1520 1601 I ActivityManager: Start proc 7657:com.creative.apps.sbconnect/u0a277 for next-top-activity {com.creative.apps.sbconnect/com.creative.apps.sbconnect.MainActivity}
+10-15 15:20:35.374 7657 7657 D nativeloader: Configuring classloader-namespace for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~<redacted>==/com.creative.apps.sbconnect-<redacted>==/lib/arm64:/data/app/~~<redacted>==/com.creative.apps.sbconnect-<redacted>==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.creative.apps.sbconnect
+10-15 15:20:35.467 7657 7657 D nativeloader: Configuring classloader-namespace for other apk /data/app/~~<redacted>==/com.creative.apps.sbconnect-<redacted>==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~<redacted>==/com.creative.apps.sbconnect-<redacted>==/lib/arm64:/data/app/~~<redacted>==/com.creative.apps.sbconnect-<redacted>==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.creative.apps.sbconnect
+10-15 15:20:35.522 7657 7657 W Resources: 	at com.creative.apps.sbconnect.MainActivity.onCreate(Unknown Source:20)
+10-15 15:20:36.920 5078 5143 I bt_stack: [INFO:sdp_utils.cc(181)] sdpu_log_attribute_metrics: skipping record without service uuid xx:xx:xx:xx:xx:xx
+10-15 15:20:36.948 5078 5143 I bt_stack: [INFO:port_api.cc(220)] RFCOMM_CreateConnectionWithSecurity: bd_addr=xx:xx:xx:xx:xx:xx, scn=2, is_server=0, mtu=990, uuid=0x1101, dlci=4, signal_state=0x0b, p_port=0x6dd899ec68
+10-15 15:20:36.948 5078 5143 I bluetooth: packages/modules/Bluetooth/system/stack/rfcomm/rfc_mx_fsm.cc:80 rfc_mx_sm_execute: RFCOMM peer:xx:xx:xx:xx:xx:xx event:6 state:RFC_MX_STATE_IDLE
+10-15 15:20:37.006 5078 5143 I bluetooth: packages/modules/Bluetooth/system/stack/rfcomm/rfc_mx_fsm.cc:80 rfc_mx_sm_execute: RFCOMM peer:xx:xx:xx:xx:xx:xx event:9 state:RFC_MX_STATE_WAIT_CONN_CNF
+10-15 15:20:37.006 5078 5143 I bluetooth: packages/modules/Bluetooth/system/stack/rfcomm/rfc_mx_fsm.cc:80 rfc_mx_sm_execute: RFCOMM peer:xx:xx:xx:xx:xx:xx event:12 state:RFC_MX_STATE_CONFIGURE
+10-15 15:20:37.006 5078 5143 I bluetooth: packages/modules/Bluetooth/system/stack/rfcomm/rfc_mx_fsm.cc:80 rfc_mx_sm_execute: RFCOMM peer:xx:xx:xx:xx:xx:xx event:11 state:RFC_MX_STATE_CONFIGURE
+10-15 15:20:37.036 5078 5143 I bluetooth: packages/modules/Bluetooth/system/stack/rfcomm/rfc_mx_fsm.cc:80 rfc_mx_sm_execute: RFCOMM peer:xx:xx:xx:xx:xx:xx event:1 state:RFC_MX_STATE_SABME_WAIT_UA
+10-15 15:20:37.537 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:37.537 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:37.537 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:37.538 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:37.693 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:37.693 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:37.843 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:37.843 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:37.844 7657 7700 E SbxAppLogic.SbxSppCommandManager: [handleProtocolEvent] SOUNDCORE_COMMAND_MAXPAYLOAD.
+10-15 15:20:38.009 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:38.010 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:38.270 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:38.271 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:38.416 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:38.417 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:38.611 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:38.611 7657 7657 I BluzManager: mOnCustomDataListener ready
+10-15 15:20:38.778 7657 7657 I BluzManager: mOnCustomCommandListener ready
+10-15 15:20:38.778 7657 7657 I BluzManager: mOnCustomDataListener ready
