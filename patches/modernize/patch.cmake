@@ -141,7 +141,25 @@ _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainService\">"
          "android:foregroundServiceType=\"mediaPlayback\" android:name=\"com.creative.apps.sbconnect.MainService\">"
          1)
 
-message(STATUS "modernize: manifest exported + permissions + foregroundServiceType")
+# --- >=28: classpath libraries removed from the default bootclasspath ------
+# API 28 dropped two class families the app references at runtime from the
+# default classpath; both survive on device as optional shared libraries, so
+# re-add each as a uses-library (required=false so install still succeeds
+# where it is absent) as the first children of <application>:
+#   org.apache.http.legacy - JSONParser uses DefaultHttpClient, so
+#     MainActivity$ParseJsonTask throws NoClassDefFoundError under the raised
+#     target.
+#   android.test.base - holds junit.framework.* / junit.runner.*. Utils.b()
+#     calls junit.framework.Assert as an inline runtime assertion, reached from
+#     SbxModifiableProfileMainFragment$ProfileListAdapter.onBindViewHolder (the
+#     "See All" / "Blaster Experience" preset lists), so binding a row throws
+#     NoClassDefFoundError: junit.framework.Assert and kills the activity.
+_sbc_sub("${mf}"
+         "android:name=\"com.creative.apps.sbconnect.SbxApplication\" android:theme=\"@style/AppTheme\">"
+         "android:name=\"com.creative.apps.sbconnect.SbxApplication\" android:theme=\"@style/AppTheme\">\n        <uses-library android:name=\"org.apache.http.legacy\" android:required=\"false\"/>\n        <uses-library android:name=\"android.test.base\" android:required=\"false\"/>"
+         1)
+
+message(STATUS "modernize: manifest exported + permissions + foregroundServiceType + apache-http-legacy + android-test-base")
 
 # ---------------------------------------------------------------------------
 # PendingIntent FLAG_IMMUTABLE (>=31), all 23 construction sites.
@@ -157,12 +175,23 @@ message(STATUS "modernize: manifest exported + permissions + foregroundServiceTy
 # ---------------------------------------------------------------------------
 
 # app's own code
-_sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
-        "invoke-static {p0, v11, v1, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
-        v11 0x4000000 1)
-_sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
-        "invoke-static {p0, v12, v2, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
-        v11 0x4000000 1)
+#
+# MainService.a() cannot take the generic _sbc_pi const-into-flags-register
+# treatment: both getActivity sites name v11 as the flags operand, and v11 is
+# the method's shared 0 constant, reused after the calls as the int index into
+# SbxProfileMainCards.a() (feeding ArrayList.get) and as the boolean for
+# NotificationCompat.setAutoCancel(). A const v11, 0x4000000 corrupts those,
+# and ArrayList.get() throws IndexOutOfBounds at index 0x4000000. The method
+# already holds 0x04000000 in v14 (loaded for Intent.addFlags), so both sites
+# take their flags from v14 and leave v11 = 0 intact. requestCode is unchanged.
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/MainService.smali"
+         "invoke-static {p0, v11, v1, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+         "invoke-static {p0, v11, v1, v14}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+         1)
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/MainService.smali"
+         "invoke-static {p0, v12, v2, v11}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+         "invoke-static {p0, v12, v2, v14}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
+         1)
 _sbc_pi("smali/com/creative/apps/sbconnect/MainService.smali"
         "invoke-static {p0, v1, v0, v2}, Landroid/app/PendingIntent;->getService(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;"
         v2 0x4000000 1)
@@ -226,3 +255,26 @@ _sbc_pi("smali_classes2/com/google/android/gms/measurement/internal/zzag.smali"
         v3 0x4000000 1)
 
 message(STATUS "modernize: PendingIntent FLAG_IMMUTABLE applied (23 sites)")
+
+# ---------------------------------------------------------------------------
+# >=26 foreground-service notification channel. MainService.a() builds its
+# notification with the channel-less NotificationCompat.Builder(Context) ctor
+# (two sites) and the app creates no channel, so startForeground() posts a
+# channel=null notification. On API 33+ that throws
+# CannotPostForegroundServiceNotificationException and kills the process.
+# FgChannelCompat.ensure() (modernize overlay) stamps the builder with a
+# channel id and registers the channel; call it right after each ctor. p0 is
+# the MainService (Context); the builder is v3 at the first site, v5 at the
+# second.
+# ---------------------------------------------------------------------------
+
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/MainService.smali"
+         "invoke-direct {v3, p0}, Landroid/support/v4/app/NotificationCompat\$Builder;-><init>(Landroid/content/Context;)V"
+         "invoke-direct {v3, p0}, Landroid/support/v4/app/NotificationCompat\$Builder;-><init>(Landroid/content/Context;)V\n\n    invoke-static {p0, v3}, Lcom/creative/apps/sbconnect/FgChannelCompat;->ensure(Landroid/content/Context;Landroid/support/v4/app/NotificationCompat\$Builder;)V"
+         1)
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/MainService.smali"
+         "invoke-direct {v5, p0}, Landroid/support/v4/app/NotificationCompat\$Builder;-><init>(Landroid/content/Context;)V"
+         "invoke-direct {v5, p0}, Landroid/support/v4/app/NotificationCompat\$Builder;-><init>(Landroid/content/Context;)V\n\n    invoke-static {p0, v5}, Lcom/creative/apps/sbconnect/FgChannelCompat;->ensure(Landroid/content/Context;Landroid/support/v4/app/NotificationCompat\$Builder;)V"
+         1)
+
+message(STATUS "modernize: foreground-service notification channel shim wired (2 sites)")
