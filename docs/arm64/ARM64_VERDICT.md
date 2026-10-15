@@ -40,9 +40,11 @@ defect.
 No encoder or decoder semantics were modified during Phase 5. Every fix made to
 reach a clean launch is a platform-API compatibility shim in the modernize
 patch (manifest `uses-library` / permissions / foreground-service type, a
-PendingIntent flag correction, and a notification-channel shim); none alters
-CtProtocol byte behavior. The two native `.so` hashes are identical to the
-A1-built libraries and unchanged across every packaging iteration.
+PendingIntent flag correction, a notification-channel shim, and a
+registerReceiver export shim); none alters CtProtocol byte behavior. The two
+native `.so` hashes are identical to the A1-built libraries and unchanged across
+every packaging iteration, verified on two 64-bit-only runtimes (Pixel 7a /
+API 33 and Galaxy S24 Ultra / API 36).
 
 ## Deliverables
 
@@ -55,3 +57,4 @@ A1-built libraries and unchanged across every packaging iteration.
 | `runtime/device_abi.txt` | Pixel 7a ABI evidence |
 | `runtime/launch_log_excerpt.txt` | bounded clean launch log |
 | `runtime/junit_crash_excerpt.txt` | pre-fix preset-screen crash |
+| `runtime/s24_launch.txt` | Galaxy S24 Ultra (API 36) launch evidence |

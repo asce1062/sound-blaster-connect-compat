@@ -83,6 +83,61 @@ function(_sbc_pi relfile invoke reg value count)
              "const ${reg}, ${value}\n\n    ${invoke}" ${count})
 endfunction()
 
+# Redirect every two-arg registerReceiver invoke under the app's smali to the
+# RcvCompat.register shim (API 34 receiver-export requirement). The call is made
+# through four static types (Context, support FragmentActivity, MainActivity,
+# MainService), all Context subtypes, so the match is any declaring class whose
+# two-arg registerReceiver returns Intent. The register tuple is preserved
+# verbatim (receiver target, receiver, filter map 1:1 onto the static params),
+# only the opcode and method ref change. RcvCompat.smali itself is skipped so
+# its own registerReceiver calls are not rewritten into self-recursion.
+# <expected> is the total stock site count across the tree, asserted so drift
+# fails loudly.
+function(_sbc_receiver_export_tree expected)
+    # Constant suffix shared by every two-arg site (the declaring class varies);
+    # counted literally with _sbc_count so embedded ';' is not list-split.
+    set(needle
+        ";->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;"
+    )
+    set(ref_rx
+        "L[^;]*;->registerReceiver\\(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;\\)Landroid/content/Intent;"
+    )
+    file(GLOB_RECURSE smalis "${TREE}/smali/com/creative/*.smali")
+    set(total 0)
+    foreach(f ${smalis})
+        get_filename_component(bn "${f}" NAME)
+        if(bn STREQUAL "RcvCompat.smali")
+            continue()
+        endif()
+        file(READ "${f}" c)
+        _sbc_count("${c}" "${needle}" n)
+        if(n GREATER 0)
+            string(
+                REGEX
+                REPLACE
+                    "invoke-virtual ({[^}]*}), ${ref_rx}"
+                    "invoke-static \\1, Lcom/creative/apps/sbconnect/RcvCompat;->register(Landroid/content/Context;Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;"
+                    c
+                    "${c}")
+            _sbc_count("${c}" "${needle}" left)
+            if(NOT left EQUAL 0)
+                message(
+                    FATAL_ERROR
+                        "modernize: ${left} registerReceiver site(s) survived rewrite in ${f}"
+                )
+            endif()
+            file(WRITE "${f}" "${c}")
+            math(EXPR total "${total}+${n}")
+        endif()
+    endforeach()
+    if(NOT total EQUAL expected)
+        message(
+            FATAL_ERROR
+                "modernize: rewrote ${total} registerReceiver site(s), expected ${expected}"
+        )
+    endif()
+endfunction()
+
 # ---------------------------------------------------------------------------
 # targetSdkVersion 26 -> ${final_target} (apktool writes the yml value into
 # the built manifest).
@@ -278,3 +333,19 @@ _sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/MainService.smali"
          1)
 
 message(STATUS "modernize: foreground-service notification channel shim wired (2 sites)")
+
+# ---------------------------------------------------------------------------
+# >=34 runtime receiver export. registerReceiver() for a non-system broadcast
+# must pass RECEIVER_EXPORTED/RECEIVER_NOT_EXPORTED under target 34+; the
+# two-arg call throws SecurityException on a 34+ device. The first site runs in
+# MainActivity.onCreate (LocalMusicManager) and more run in onStart (fragments
+# via FragmentActivity), so the app crashes on launch on Android 14+. The call
+# is made through Context, support FragmentActivity, MainActivity and
+# MainService (all Context subtypes). Redirect every two-arg registerReceiver
+# call to the RcvCompat.register shim (modernize overlay), which passes
+# RECEIVER_EXPORTED on 34+ and is unchanged below. 78 sites across 58 files.
+# ---------------------------------------------------------------------------
+
+_sbc_receiver_export_tree(78)
+
+message(STATUS "modernize: registerReceiver export shim wired (78 sites across 58 files)")

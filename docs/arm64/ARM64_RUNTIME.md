@@ -46,10 +46,12 @@ Installed via `adb install -r`; `Success`, and `dumpsys package` reports
 
 ### Platform-compatibility fixes required to reach a clean launch
 
-The first-ever run on a real arm64 runtime surfaced four stock-app defects that
-a current Android release (API 33) exposes and the original 32-bit device era
-did not. Each is a platform-API compatibility shim in the modernize patch;
-none touches CtProtocol encode/decode semantics, which stay frozen.
+Running on real arm64 hardware surfaced five stock-app defects that current
+Android releases expose and the original 32-bit device era did not: fixes 1-4
+on the Pixel 7a (API 33) and fix 5 on a Galaxy S24 Ultra (API 36), which
+enforces an API 34 rule the Pixel's platform does not. Each is a platform-API
+compatibility shim in the modernize patch; none touches CtProtocol encode/decode
+semantics, which stay frozen.
 
 1. **PendingIntent register clobber / FLAG_IMMUTABLE** - `MainService.a()` built
    its `getActivity` PendingIntents without the API 31+ mutability flag. The
@@ -78,8 +80,23 @@ none touches CtProtocol encode/decode semantics, which stay frozen.
    `uses-library` alongside the Apache one. Confirmed on device: the preset
    screens open without crashing, crash buffer clean, process survives.
 
-Fixes 1-3 were needed to reach the Dashboard; fix 4 was needed for the preset
-screens reached from it.
+5. **registerReceiver export flag (API 34)** - `Context.registerReceiver()` for
+   a non-system broadcast must pass `RECEIVER_EXPORTED`/`RECEIVER_NOT_EXPORTED`
+   when the app targets API 34+, or the platform throws
+   `SecurityException ("One of RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED should
+   be specified ...")`. The check exists only on API 34+ devices, so the Pixel 7a
+   (API 33) never hit it; the S24 Ultra (API 36) crashes at launch - first in
+   `MainActivity.onCreate` (`LocalMusicManager`), then in `onStart` (fragments).
+   The call is made through four static types (`Context`, support
+   `FragmentActivity`, `MainActivity`, `MainService`), 78 sites across 58 files.
+   All route through the `RcvCompat.register` overlay, which passes
+   `RECEIVER_EXPORTED` on API 34+ (reproducing the pre-Android-13 implicit-export
+   behaviour the stock app relied on) and the original two-arg call below.
+   Confirmed on the S24: clean launch, crash buffer empty, app reaches the
+   Dashboard (`runtime/s24_launch.txt`).
+
+Fixes 1-3 were needed to reach the Dashboard; fix 4 for the preset screens
+reached from it; fix 5 for launch on Android 14+ (API 34+) devices.
 
 ## A6 - negative control
 
@@ -99,11 +116,27 @@ device class.
 
 | Artifact | SHA-256 |
 |---|---|
-| Final arm64 APK (signed) | `5afae081aaabf22f3baf0509220184087ab87a370e91c810b0d25b3d1a4d6ec5` |
+| Final arm64 APK (signed) | `9a54a7f872b535d6d50a6697d276016b5b799875464ff71b98bb0c72ce89b93f` |
 | `libsbxapplogic_ctprotocol_jni.so` (arm64-v8a) | `ef9bad520bd1c94d9a942857425b80722d650190dd120dad8d9d070490e52c6e` |
 | `libserialport_jni.so` (arm64-v8a) | `e50efa5e59d111a695b6eb7d1457824df03921f53eb6e4eda04fc524f4d58a87` |
 
-The APK hash supersedes the pre-junit-fix build
-(`b53a88939adc8ecd3cdf33416fb42382d25c071d76e52d62a305b36e19dc2319`); the two
-`.so` hashes are unchanged across every iteration, since the fixes are
+The APK hash is the current build with all five fixes; it supersedes the
+Pixel-only builds (`5afae081...` junit fix, `b53a8893...` pre-junit). The two
+`.so` hashes are unchanged across every iteration, since all fixes are
 manifest/smali-only.
+
+## Second runtime - Galaxy S24 Ultra (Android 16 / API 36)
+
+A second 64-bit-only arm64 device confirms the package on a much newer platform:
+
+| Field | Value |
+|---|---|
+| Model | SM-S928U1 |
+| Android | 16 (SDK 36) |
+| `abilist` / `abilist32` | `arm64-v8a` / *(empty)* |
+| Install | Success, `primaryCpuAbi=arm64-v8a` |
+| Launch | 0 FATAL, process alive, reaches Dashboard (`runtime/s24_launch.txt`) |
+
+The S24 required fix 5 (API 34 receiver export), which the Pixel's API 33
+platform never triggered. With it, the app installs, loads the arm64 libraries,
+and reaches its normal device-connection UI on both runtimes.

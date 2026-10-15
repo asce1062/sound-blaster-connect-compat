@@ -1,0 +1,23 @@
+# S24 Ultra launch evidence - arm64, Android 16 / SDK 36
+# APK: sbc_arm64-aligned-debugSigned.apk
+#   sha256 9a54a7f872b535d6d50a6697d276016b5b799875464ff71b98bb0c72ce89b93f
+
+## device
+SM-S928U1
+android=16
+sdk=36
+abilist=arm64-v8a
+abilist32=
+installed primaryCpuAbi: primaryCpuAbi=arm64-v8a
+
+## launch result (clean app data, bounded)
+FATAL EXCEPTION count after launch: 0
+process: alive
+resumed activity after onboarding: com.creative.apps.sbconnect/.MainActivity
+UI reached: Dashboard (Recent Music / BlasterX Experience / Sources) +
+            'Touch to connect to an Audio Device' prompt (Katana not connected)
+
+## note
+Android 16 (SDK 36) enforces the API 34 registerReceiver export rule that
+Android 13 (Pixel 7a) does not. All 78 two-arg registerReceiver sites now
+route through RcvCompat.register (RECEIVER_EXPORTED on 34+).
