@@ -7,7 +7,9 @@
 
 add_library(sbxapplogic_ctprotocol_jni SHARED
     core/ctprotocol_encode.c
-    jni/ctprotocol_jni.c)
+    core/ctprotocol_decode.c
+    jni/ctprotocol_jni.c
+    jni/ctprotocol_jni_decode.c)
 
 target_include_directories(sbxapplogic_ctprotocol_jni PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/core")
