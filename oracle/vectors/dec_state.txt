@@ -1,0 +1,38 @@
+# D4 statefulness controls. seq mode: each group is ONE process-run observation
+# window (CB cleared only at group start). Invariant probe = 5a03020000 (maxPls 0):
+# if the SAME bytes ever produce a DIFFERENT callback/args depending on what ran
+# before, that is hidden decoder state. Expected: every maxPls prints "maxPlsCallback 0".
+
+# D4-1 fresh baseline: single maxPls
+5a03020000
+
+# D4-2 repeated same window: identical frame x3 (de-dup / accumulation probe)
+5a03020000
+5a03020000
+5a03020000
+
+# D4-3 interleaved families: maxPls / batteryLevel / maxPls / requestControl / maxPls
+5a03020000
+5a27020100
+5a03020000
+5a060100
+5a03020000
+
+# D4-4 probe after rejected frames (unknown op 0x7f, then bad declared length)
+5a7f020000
+5a03020000
+5a03030000
+5a03020000
+
+# D4-5 probe after a truncated/partial frame
+5a0302
+5a03020000
+
+# D4-6 probe after a concatenated-frame buffer (rejected)
+5a030200005a060100
+5a03020000
+
+# D4-7 value-tracking: out must follow input bytes only (payload 00 -> 07 -> 00)
+5a03020000
+5a03020700
+5a03020000

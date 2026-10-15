@@ -1,0 +1,53 @@
+# D2 stream/framing corpus. seq mode: blank line = new decode() instance window.
+# Frame A = 5a03020000 (maxPls 0). Frame B = 5a060100 (requestControl 0).
+# D2-1 full frame in one call (baseline)
+=== group 1
+CALL 1.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 1
+# D2-2 split at boundary: header-only, then payload-only, then known-good control
+=== group 2
+CALL 2.1 5a0302 (len=3) -> ret=1
+    (no callback)
+CALL 2.2 0000 (len=2) -> ret=1
+    (no callback)
+CALL 2.3 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 2
+# D2-3 two full frames concatenated in ONE call (A then B)
+=== group 3
+CALL 3.1 5a030200005a060100 (len=9) -> ret=1
+    (no callback)
+--- end group 3
+# D2-4 full frame + partial next, ONE call (A + partial B header)
+=== group 4
+CALL 4.1 5a030200005a06 (len=7) -> ret=1
+    (no callback)
+--- end group 4
+# D2-5 partial frame completed by next call (B split 5a06 | 0100), then control
+=== group 5
+CALL 5.1 5a06 (len=2) -> ret=1
+    (no callback)
+CALL 5.2 0100 (len=2) -> ret=1
+    (no callback)
+CALL 5.3 5a060100 (len=4) -> ret=1
+    CB requestControlCallback 0
+--- end group 5
+# D2-6 same full frame twice (two independent calls)
+=== group 6
+CALL 6.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 6.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 6
+# D2-7 non-frame prefix then full frame, ONE call (ff then A)
+=== group 7
+CALL 7.1 ff5a03020000 (len=6) -> ret=1
+    (no callback)
+--- end group 7
+# D2-8 full frame + one trailing junk byte, ONE call
+=== group 8
+CALL 8.1 5a03020000ff (len=6) -> ret=1
+    (no callback)
+--- end group 8
+DONE

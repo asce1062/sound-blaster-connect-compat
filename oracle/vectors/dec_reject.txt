@@ -1,0 +1,49 @@
+# D3 bounded rejection matrix. seq mode: each group = [mutant frame, known-good control].
+# Control = 5a03020000 (maxPls 0). A positive control firing after a reject proves the
+# reject did not poison the observation path (decoder is stateless per call).
+# Valid baselines: A=5a03020000 (op03 maxPls), op26 sub1=5a26050100000000 (hwBtn),
+# op27 sub1=5a27020100 (batteryLevel).
+
+# D3-1 truncate A by one byte (drop last payload byte)
+5a030200
+5a03020000
+
+# D3-2 truncate A to header-only (before payload)
+5a03
+5a03020000
+
+# D3-3 invalid declared length: plen too large (buf[2]=3, actual payload 2)
+5a03030000
+5a03020000
+
+# D3-4 invalid declared length: plen too small (buf[2]=1, actual payload 2)
+5a03010000
+5a03020000
+
+# D3-5 magic-byte mutation (buf[0]=0x5b)
+5b03020000
+5a03020000
+
+# D3-6 one payload-byte mutation: op26 unknown subcommand (sub=0x09, valid 1..4)
+5a26050900000000
+5a03020000
+
+# D3-7 unknown command (op=0x7f, no dispatch entry)
+5a7f020000
+5a03020000
+
+# D3-8 unknown subcommand: op27 sub=0x03 (valid 1,2)
+5a27020300
+5a03020000
+
+# D3-9 min legal payload: op03 plen=0 (len=3, passes length gate)
+5a0300
+5a03020000
+
+# D3-10 min legal payload: op26 sub1 trimmed to plen=1 (gate passes, sub handler starved)
+5a260101
+5a03020000
+
+# D3-11 max legal payload: op03 plen=0xff (255 payload bytes, gate passes)
+5a03ff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+5a03020000

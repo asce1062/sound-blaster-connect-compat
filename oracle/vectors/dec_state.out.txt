@@ -1,0 +1,63 @@
+# D4 statefulness controls. seq mode: each group is ONE process-run observation
+# D4-1 fresh baseline: single maxPls
+=== group 1
+CALL 1.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 1
+# D4-2 repeated same window: identical frame x3 (de-dup / accumulation probe)
+=== group 2
+CALL 2.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 2.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 2.3 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 2
+# D4-3 interleaved families: maxPls / batteryLevel / maxPls / requestControl / maxPls
+=== group 3
+CALL 3.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 3.2 5a27020100 (len=5) -> ret=1
+    CB batteryLevelCallback 0
+CALL 3.3 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 3.4 5a060100 (len=4) -> ret=1
+    CB requestControlCallback 0
+CALL 3.5 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 3
+# D4-4 probe after rejected frames (unknown op 0x7f, then bad declared length)
+=== group 4
+CALL 4.1 5a7f020000 (len=5) -> ret=0
+    (no callback)
+CALL 4.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 4.3 5a03030000 (len=5) -> ret=1
+    (no callback)
+CALL 4.4 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 4
+# D4-5 probe after a truncated/partial frame
+=== group 5
+CALL 5.1 5a0302 (len=3) -> ret=1
+    (no callback)
+CALL 5.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 5
+# D4-6 probe after a concatenated-frame buffer (rejected)
+=== group 6
+CALL 6.1 5a030200005a060100 (len=9) -> ret=1
+    (no callback)
+CALL 6.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 6
+# D4-7 value-tracking: out must follow input bytes only (payload 00 -> 07 -> 00)
+=== group 7
+CALL 7.1 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+CALL 7.2 5a03020700 (len=5) -> ret=1
+    CB maxPlsCallback 7
+CALL 7.3 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 7
+DONE

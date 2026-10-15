@@ -1,0 +1,7 @@
+DEC 5a03020000|5 (arr=5,len=5) -> ret=1
+  CB maxPlsCallback 0
+DEC 5a03020000ff|5 (arr=6,len=5) -> ret=1
+  CB maxPlsCallback 0
+DEC 5a03020000|4 (arr=5,len=4) -> ret=1
+DEC 5a03020000ff|6 (arr=6,len=6) -> ret=1
+DONE

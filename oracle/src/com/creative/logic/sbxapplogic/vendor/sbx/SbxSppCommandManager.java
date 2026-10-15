@@ -65,7 +65,7 @@ public class SbxSppCommandManager {
     private static void log(String s) { CB.add(s); }
 
     private static void requestControlCallback(boolean a) { log("requestControlCallback " + b(a)); }
-    private static void dataAckCallback(int a, int c, byte[] d) { log("dataAckCallback " + a + " " + c + " " + hex(d)); }
+    private static void dataAckCallback(int a, int c, byte[] d) { log("dataAckCallback " + a + " " + c + " " + arr(d)); }
     private static void obsoleteAckCallback(int a, int c) { log("obsoleteAckCallback " + a + " " + c); }
     private static void pendingAckCallback(int a, int c, int d) { log("pendingAckCallback " + a + " " + c + " " + d); }
     private static void fileAckCallback(int a, int c, int d) { log("fileAckCallback " + a + " " + c + " " + d); }
@@ -74,8 +74,8 @@ public class SbxSppCommandManager {
     private static void maxPlsCallback(int a) { log("maxPlsCallback " + a); }
     private static void hwBtnCallback(int a, boolean c, boolean d, boolean e, boolean f, boolean g, boolean h, boolean i) { log("hwBtnCallback " + a + " " + b(c) + b(d) + b(e) + b(f) + b(g) + b(h) + b(i)); }
     private static void audioCtrlCallback(int a, boolean c) { log("audioCtrlCallback " + a + " " + b(c)); }
-    private static void audioLvlCallback(int a, float c, int d) { log("audioLvlCallback " + a + " " + c + " " + d); }
-    private static synchronized void audioLvlRangeCallback(int a, float c, float d, float e, int f, int g, int h) { log("audioLvlRangeCallback " + a + " " + c + " " + d + " " + e + " " + f + " " + g + " " + h); }
+    private static void audioLvlCallback(int a, float c, int d) { log("audioLvlCallback " + a + " " + flt(c) + " " + d); }
+    private static synchronized void audioLvlRangeCallback(int a, float c, float d, float e, int f, int g, int h) { log("audioLvlRangeCallback " + a + " " + flt(c) + " " + flt(d) + " " + flt(e) + " " + f + " " + g + " " + h); }
     private static void batteryLevelCallback(int a) { log("batteryLevelCallback " + a); }
     private static void batteryLevelSupportCallback(int a, int c, int d) { log("batteryLevelSupportCallback " + a + " " + c + " " + d); }
     private static void batteryStatusCallback(boolean a, boolean c) { log("batteryStatusCallback " + b(a) + " " + b(c)); }
@@ -86,7 +86,7 @@ public class SbxSppCommandManager {
     private static void sbxProfileInfoCallback(int a, int c) { log("sbxProfileInfoCallback " + a + " " + c); }
     private static void sbxProfileDataCallback(int a) { log("sbxProfileDataCallback " + a); }
     private static void btAutoConnectCallback(int a) { log("btAutoConnectCallback " + a); }
-    private static void devicefwStringCallback(int[] a) { log("devicefwStringCallback " + ints(a)); }
+    private static void devicefwStringCallback(int[] a) { log("devicefwStringCallback " + iarr(a)); }
     private static void profileInfoRecFirstCallback(int a, int c, int d, boolean e, int f, boolean g, boolean h, int i, boolean j) { log("profileInfoRecFirstCallback " + a + " " + c + " " + d + " " + b(e) + " " + f + " " + b(g) + " " + b(h) + " " + i + " " + b(j)); }
     private static void profileInfoRestCallback(int a, int c, boolean d, int e, boolean f, boolean g, int h, boolean i) { log("profileInfoRestCallback " + a + " " + c + " " + b(d) + " " + e + " " + b(f) + " " + b(g) + " " + h + " " + b(i)); }
     private static void activeProfileRecCallback(int a, boolean c) { log("activeProfileRecCallback " + a + " " + b(c)); }
@@ -106,6 +106,20 @@ public class SbxSppCommandManager {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
         return sb.toString();
+    }
+    // ---- D5 typed-fidelity helpers (decode callbacks only) ----
+    // Distinguish null vs empty, report length, and expose raw float bits so
+    // signedness / width / NaN are unambiguous in the frozen capture.
+    private static String flt(float v) {
+        return v + "(bits=" + String.format("0x%08x", Float.floatToRawIntBits(v)) + ")";
+    }
+    private static String arr(byte[] a) {
+        if (a == null) return "null";
+        return "[len=" + a.length + "]" + hex(a);
+    }
+    private static String iarr(int[] a) {
+        if (a == null) return "null";
+        return "[len=" + a.length + "]" + ints(a);
     }
     private static byte[] unhex(String s) {
         s = s.trim();
@@ -266,12 +280,51 @@ public class SbxSppCommandManager {
             while ((line = r.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("#")) continue;
-                byte[] f = unhex(line);
+                // Optional "hex|N" overrides the length argument (N may differ from
+                // the array length) to probe whether decode() uses the explicit len
+                // parameter or the array's own length.
+                int bar = line.indexOf('|');
+                String hex = bar < 0 ? line : line.substring(0, bar);
+                byte[] f = unhex(hex);
+                int len = bar < 0 ? f.length : Integer.parseInt(line.substring(bar + 1).trim());
                 CB.clear();
-                boolean ret = decode(f, f.length);
-                System.out.println("DEC " + line + " -> ret=" + b(ret));
+                boolean ret = decode(f, len);
+                System.out.println("DEC " + line + " (arr=" + f.length + ",len=" + len
+                                   + ") -> ret=" + b(ret));
                 for (String c : CB) System.out.println("  CB " + c);
             }
+            r.close();
+        } else if (mode.equals("seq")) {
+            // Stream/framing corpus: blank-line-separated GROUPS. Within a group
+            // each non-comment line is one decode() call sharing a single callback
+            // window (CB cleared only at group start), so cross-call buffering /
+            // reassembly is directly observable. Callbacks are attributed to the
+            // call that produced them.
+            BufferedReader r = new BufferedReader(new FileReader(args[2]));
+            String line;
+            int grp = 0, call = 0;
+            boolean open = false;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("#")) { System.out.println(line); continue; }
+                if (line.isEmpty()) {
+                    if (open) { System.out.println("--- end group " + grp); open = false; }
+                    continue;
+                }
+                if (!open) { grp++; call = 0; CB.clear(); open = true;
+                             System.out.println("=== group " + grp); }
+                call++;
+                byte[] f = unhex(line);
+                int before = CB.size();
+                boolean ret = decode(f, f.length);
+                System.out.println("CALL " + grp + "." + call + " " + line
+                                   + " (len=" + f.length + ") -> ret=" + b(ret));
+                for (int i = before; i < CB.size(); i++)
+                    System.out.println("    CB " + CB.get(i));
+                if (CB.size() == before)
+                    System.out.println("    (no callback)");
+            }
+            if (open) System.out.println("--- end group " + grp);
             r.close();
         }
         System.out.println("DONE");

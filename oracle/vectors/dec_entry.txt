@@ -1,0 +1,12 @@
+# D0 entry-contract length probe. "hex|N" calls decode(unhex(hex), N).
+# A = 5a03020000 (maxPls 0), 5 bytes.
+# baseline: array == len
+5a03020000|5
+# array longer than declared len: 6-byte array, len=5. If decode honors the
+# explicit len it validates only the first 5 bytes (buf[2]=2==len-3) -> maxPls;
+# if it used the array length (6) the length gate (2 != 3) would reject.
+5a03020000ff|5
+# declared len shorter than a full frame: len=4 truncates below payload -> reject.
+5a03020000|4
+# declared len = array, trailing byte included (control for the reject path)
+5a03020000ff|6

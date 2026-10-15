@@ -1,0 +1,55 @@
+# D1 master valid-frame corpus (gen_d1_final.py). 25 callback families + 2 ordering demos.
+# obsoleteAck <- op02 param_3=5
+5a02020100
+# pendingAck(i,i,i) <- op02 param_3=7
+5a020401010000
+# fileAck(i,i,i) <- op02 param_3=6
+5a0203010100
+# dataAck(i,i,byte[8]) <- op02 plen=0xa code!=0x3a
+5a020a01001122334455667788
+# maxPls(i) <- op03
+5a03020000
+# requestControl(i) <- op06
+5a060100
+# deviceInfo(i,i) <- op07 plen=4
+5a070400000000
+# fwInfo(i,i,i,i,i) <- op07 plen=6
+5a0706000000000000
+# devicefwString(int[64]) <- op07 plen=0x40
+5a074000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+# activeProfileRec(i,i) <- op1a buf3=1
+5a1a020100
+# activeProfileMega(i,i) <- op1a buf3=2
+5a1a020200
+# profileInfoRecFirst(...9) <- op19 mode=1 count=1
+5a190700010001000000
+# profileInfoRest(...8) <- op19 buf3&7f!=0 buf4=1
+5a1906010100000000
+# audioLvlRange(i,f,f,f,i,i,i) <- op22 plen=9
+5a2209010000000000000000
+# audioLvl(i,f,i) <- op23 plen=4
+5a230400000000
+# hwBtn(i,byte[]) <- op26 sub1
+5a26050100000000
+# hwBtnSupport(i,byte[]) <- op26 sub2
+5a26050200000000
+# hwBtnStatusSupport(i,byte[]) <- op26 sub3
+5a26050300000000
+# hwBtnEnabled(i,byte[]) <- op26 sub4
+5a26050400000000
+# batteryLevel(i) <- op27 sub1
+5a27020100
+# batteryLevelSupport(i,i,i) <- op27 sub2
+5a270402000000
+# batteryStatus(i,i) <- op28 sub1
+5a28050100000000
+# batteryStatusSupport(i,i) <- op28 sub2
+5a28050200000000
+# btAutoConnect(i) <- op31
+5a310100
+# voicePromptCtrl(i) <- op99
+5a990100
+# ORDER profileInfoRecFirst x2 (op19 count=2)
+5a190a00010002000000000000
+# ORDER profileInfoRecFirst x3 (op19 count=3)
+5a190d00010003000000000000000000

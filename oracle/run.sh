@@ -38,9 +38,10 @@ java -cp "$D8_JAR" com.android.tools.r8.D8 --min-api 30 \
 "$ADB" push "$(w "$SO")" "$DEV/lib.so" >/dev/null
 CLS=com.creative.logic.sbxapplogic.vendor.sbx.SbxSppCommandManager
 
-if [ "$MODE" = "dec" ]; then
-    "$ADB" push "$(w "$CORPUS")" "$DEV/corpus.txt" >/dev/null
-    "$ADB" shell "cd $DEV && CLASSPATH=$DEV/oracle.jar app_process32 $DEV $CLS $DEV/lib.so dec $DEV/corpus.txt"
-else
+if [ "$MODE" = "enc" ]; then
     "$ADB" shell "cd $DEV && CLASSPATH=$DEV/oracle.jar app_process32 $DEV $CLS $DEV/lib.so enc"
+else
+    # Any corpus-driven mode (dec, seq): push the corpus and pass the mode through.
+    "$ADB" push "$(w "$CORPUS")" "$DEV/corpus.txt" >/dev/null
+    "$ADB" shell "cd $DEV && CLASSPATH=$DEV/oracle.jar app_process32 $DEV $CLS $DEV/lib.so $MODE $DEV/corpus.txt"
 fi

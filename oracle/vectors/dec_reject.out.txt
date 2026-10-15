@@ -1,0 +1,79 @@
+# D3 bounded rejection matrix. seq mode: each group = [mutant frame, known-good control].
+# D3-1 truncate A by one byte (drop last payload byte)
+=== group 1
+CALL 1.1 5a030200 (len=4) -> ret=1
+    (no callback)
+CALL 1.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 1
+# D3-2 truncate A to header-only (before payload)
+=== group 2
+CALL 2.1 5a03 (len=2) -> ret=1
+    (no callback)
+CALL 2.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 2
+# D3-3 invalid declared length: plen too large (buf[2]=3, actual payload 2)
+=== group 3
+CALL 3.1 5a03030000 (len=5) -> ret=1
+    (no callback)
+CALL 3.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 3
+# D3-4 invalid declared length: plen too small (buf[2]=1, actual payload 2)
+=== group 4
+CALL 4.1 5a03010000 (len=5) -> ret=1
+    (no callback)
+CALL 4.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 4
+# D3-5 magic-byte mutation (buf[0]=0x5b)
+=== group 5
+CALL 5.1 5b03020000 (len=5) -> ret=1
+    (no callback)
+CALL 5.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 5
+# D3-6 one payload-byte mutation: op26 unknown subcommand (sub=0x09, valid 1..4)
+=== group 6
+CALL 6.1 5a26050900000000 (len=8) -> ret=1
+    (no callback)
+CALL 6.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 6
+# D3-7 unknown command (op=0x7f, no dispatch entry)
+=== group 7
+CALL 7.1 5a7f020000 (len=5) -> ret=0
+    (no callback)
+CALL 7.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 7
+# D3-8 unknown subcommand: op27 sub=0x03 (valid 1,2)
+=== group 8
+CALL 8.1 5a27020300 (len=5) -> ret=1
+    (no callback)
+CALL 8.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 8
+# D3-9 min legal payload: op03 plen=0 (len=3, passes length gate)
+=== group 9
+CALL 9.1 5a0300 (len=3) -> ret=1
+    (no callback)
+CALL 9.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 9
+# D3-10 min legal payload: op26 sub1 trimmed to plen=1 (gate passes, sub handler starved)
+=== group 10
+CALL 10.1 5a260101 (len=4) -> ret=1
+    (no callback)
+CALL 10.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 10
+# D3-11 max legal payload: op03 plen=0xff (255 payload bytes, gate passes)
+=== group 11
+CALL 11.1 5a03ff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 (len=258) -> ret=1
+    (no callback)
+CALL 11.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 11
+DONE

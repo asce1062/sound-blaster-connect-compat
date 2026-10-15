@@ -1,0 +1,58 @@
+DEC 5a02020100 (arr=5,len=5) -> ret=1
+  CB obsoleteAckCallback 1 0
+DEC 5a020401010000 (arr=7,len=7) -> ret=1
+  CB pendingAckCallback 1 1 2
+DEC 5a0203010100 (arr=6,len=6) -> ret=1
+  CB fileAckCallback 1 0 1
+DEC 5a020a01001122334455667788 (arr=13,len=13) -> ret=1
+  CB dataAckCallback 1 0 [len=8]1122334455667788
+DEC 5a03020000 (arr=5,len=5) -> ret=1
+  CB maxPlsCallback 0
+DEC 5a060100 (arr=4,len=4) -> ret=1
+  CB requestControlCallback 0
+DEC 5a070400000000 (arr=7,len=7) -> ret=1
+  CB deviceInfoCallback 0 0
+DEC 5a0706000000000000 (arr=9,len=9) -> ret=1
+  CB fwInfoCallback 0 0 0 0 0
+DEC 5a074000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 (arr=67,len=67) -> ret=1
+  CB devicefwStringCallback [len=64]0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+DEC 5a1a020100 (arr=5,len=5) -> ret=1
+  CB activeProfileRecCallback 0 0
+DEC 5a1a020200 (arr=5,len=5) -> ret=1
+  CB activeProfileMegaCallback 0 0
+DEC 5a190700010001000000 (arr=10,len=10) -> ret=1
+  CB profileInfoRecFirstCallback 0 0 0 0 0 0 1 0 1
+DEC 5a1906010100000000 (arr=9,len=9) -> ret=1
+  CB profileInfoRestCallback 0 0 0 0 0 1 0 1
+DEC 5a2209010000000000000000 (arr=12,len=12) -> ret=1
+  CB audioLvlRangeCallback 0 0.0(bits=0x00000000) 0.0(bits=0x00000000) 0.0(bits=0x00000000) 0 0 0
+DEC 5a230400000000 (arr=7,len=7) -> ret=1
+  CB audioLvlCallback 0 0.0(bits=0x00000000) 0
+DEC 5a26050100000000 (arr=8,len=8) -> ret=1
+  CB hwBtnCallback 0 0000000
+DEC 5a26050200000000 (arr=8,len=8) -> ret=1
+  CB hwBtnSupportCallback 0 0000000
+DEC 5a26050300000000 (arr=8,len=8) -> ret=1
+  CB hwBtnStatusSupportCallback 0 1100111
+DEC 5a26050400000000 (arr=8,len=8) -> ret=1
+  CB hwBtnEnabledCallback 0 0000000
+DEC 5a27020100 (arr=5,len=5) -> ret=1
+  CB batteryLevelCallback 0
+DEC 5a270402000000 (arr=7,len=7) -> ret=1
+  CB batteryLevelSupportCallback 0 0 0
+DEC 5a28050100000000 (arr=8,len=8) -> ret=1
+  CB batteryStatusCallback 0 0
+DEC 5a28050200000000 (arr=8,len=8) -> ret=1
+  CB batteryStatusSupportCallback 0 0
+DEC 5a310100 (arr=4,len=4) -> ret=1
+  CB btAutoConnectCallback 0
+DEC 5a990100 (arr=4,len=4) -> ret=1
+  CB voicePromptCtrlCallback 0
+DEC 5a190a00010002000000000000 (arr=13,len=13) -> ret=1
+  CB profileInfoRecFirstCallback 0 0 0 0 0 0 1 0 1
+  CB profileInfoRecFirstCallback 0 1 0 0 0 0 1 0 1
+DEC 5a190d00010003000000000000000000 (arr=16,len=16) -> ret=1
+  CB profileInfoRecFirstCallback 0 0 0 0 0 0 1 0 1
+  CB profileInfoRecFirstCallback 0 1 0 0 0 0 1 0 1
+  CB profileInfoRecFirstCallback 0 2 0 0 0 0 1 0 1
+DONE

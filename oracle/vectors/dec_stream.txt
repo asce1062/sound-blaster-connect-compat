@@ -1,0 +1,30 @@
+# D2 stream/framing corpus. seq mode: blank line = new decode() instance window.
+# Frame A = 5a03020000 (maxPls 0). Frame B = 5a060100 (requestControl 0).
+# D2-1 full frame in one call (baseline)
+5a03020000
+
+# D2-2 split at boundary: header-only, then payload-only, then known-good control
+5a0302
+0000
+5a03020000
+
+# D2-3 two full frames concatenated in ONE call (A then B)
+5a030200005a060100
+
+# D2-4 full frame + partial next, ONE call (A + partial B header)
+5a030200005a06
+
+# D2-5 partial frame completed by next call (B split 5a06 | 0100), then control
+5a06
+0100
+5a060100
+
+# D2-6 same full frame twice (two independent calls)
+5a03020000
+5a03020000
+
+# D2-7 non-frame prefix then full frame, ONE call (ff then A)
+ff5a03020000
+
+# D2-8 full frame + one trailing junk byte, ONE call
+5a03020000ff
