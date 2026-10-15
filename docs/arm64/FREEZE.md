@@ -58,9 +58,13 @@ Deps of the stock lib: `libstdc++.so`, `libm.so`, `libc.so`, `libdl.so`. The
 reimplementation core is written in **C** (no STL), so the arm64 build drops
 `libstdc++` and adds only `liblog` if it logs.
 
-### JNI exports — 35 Java native methods (`SbxSppCommandManager`, all `private static native`)
+### JNI exports — 35 reachable Java native methods (`SbxSppCommandManager`, all `private static native`)
 
 Bound by export name `Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_<name>`.
+The `.so` exports 41 such `Java_...` symbols; 6 are **unbound in this APK** (no
+Java `native` declaration): `requestControl`, `getMalcolmParam`, `setAudioLvl`,
+`getAudioLvlRange`, `getAudioCtrlInfo`, `setHwBtnWithSaveState`. They are
+vestigial and not reimplemented. The reachable surface is these 35:
 
 ```
 cancelFileTransfer                ()[B          getHwBtnStatusSupport ()[B
