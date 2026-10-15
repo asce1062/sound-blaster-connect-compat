@@ -25,7 +25,10 @@ a reason to stay exported.
 
 ## First-party components
 
-| Component | Type | Current | Needs export? | Verdict |
+Export values below are the pre-hardening baseline this audit started from; the
+applied result is in the acceptance matrix near the end.
+
+| Component | Type | Pre-hardening | Needs export? | Verdict |
 |---|---|---|---|---|
 | `MainActivity` | activity | `true` | yes | Correct. Launcher entry; must be exported. |
 | `MainReceiver` | receiver | `true` | no | Tighten to `false`. See finding R1. |
@@ -94,27 +97,46 @@ declared not-exported; the on-device step below confirms it for this build.
 feature behind it is dead on modern Android). **Recommendation:** set
 `exported="false"`.
 
-## Proposed change (not yet applied)
+## Change applied and verified
 
-Flip three `exported="true"` to `"false"` in the `patch.cmake` manifest block
-(lines that set `MainReceiver`, `MainService`, `MediaButtonReceiver`), leaving
-`MainActivity` and `LocalMusicRemoteControllerService` exported. This is a
-hardening step, not a launch requirement, so it is gated on an on-device
-re-verification rather than bundled blind:
+The three `exported="true"` values were flipped to `"false"` in the
+`patch.cmake` manifest block (`MainReceiver`, `MainService`, `MediaButtonReceiver`),
+leaving `MainActivity` and `LocalMusicRemoteControllerService` exported. Only
+manifest export flags changed; the CtProtocol encoder/decoder, the JNI, the
+native `.so` libraries, the permission flow, the package identity and signing,
+and the 96-site dynamic `registerReceiver` compatibility shim are untouched. The
+arm64 APK was the only rebuild target.
 
-Verification protocol (Galaxy S24 Ultra, Android 16, arm64):
-1. Build `apk-arm64`, install, grant the runtime permissions.
-2. Connect to the Katana over Bluetooth SPP; confirm the Dashboard reaches the
-   connected state and the in-use flag clears (exercises MainReceiver's ACL /
-   profile broadcasts).
-3. Confirm the foreground-service notification posts and survives (MainService).
-4. Reboot with the app installed; confirm `BOOT_COMPLETED` auto-start still
-   reaches MainReceiver (exercises the protected-broadcast-with-`exported=false`
-   path end to end).
+### Acceptance matrix
 
-If every step passes, the tightening is safe; if any regresses, the specific
-component reverts to `exported="true"` with the reason recorded here. The change
-touches only manifest export flags, no encoder, decoder, or native code.
+Device: Galaxy S24 Ultra (SM-S928U1), Android 16, arm64. Fresh clean install,
+Play Protect left enabled.
+
+| Component | Before | After | External caller needed? | Runtime result |
+|---|---|---|---|---|
+| `MainReceiver` | `exported=true` | `exported=false` | No | **PASS.** `BOOT_COMPLETED` delivered to `MainReceiver` after reboot with the receiver `exported=false` (broadcast record state `DELIVERED`, `requiredPermissions=[RECEIVE_BOOT_COMPLETED]`, terminal +141ms). AMS started the process `for broadcast {.../MainReceiver}` with no manual launch. Implicit `CONNECTIVITY_CHANGE` to the same receiver is skipped by targetSdk policy (`[0,23]` only), independent of the export flag. |
+| `MainService` | `exported=true` | `exported=false` | No | **PASS.** Started as a foreground service from the same-app caller (`ActivityManager: Background started FGS: Allowed ... cmp=.../.MainService`), `isForeground=true`, type `mediaPlayback`, channel `sbconnect_fg`. Also auto-created from the boot receiver (`createdFromFg=false`) while `MainActivity` never resumed. |
+| `MediaButtonReceiver` | `exported=true` | `exported=false` | No | **STATICALLY_JUSTIFIED / RUNTIME_UNTESTED.** `MEDIA_BUTTON` is routed by the `MediaSession` framework to the session owner's registered component; the device reported 0 active media sessions, so no caller path exists to exercise or to break. `exported="false"` matches androidx's own modern default for this receiver. |
+
+### Eight-point connection regression (all PASS)
+
+1. App starts (process alive, no `FATAL`/ANR). 2. Nearby Devices flow works
+(`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, plus location and notifications granted).
+3. Katana appears (Dashboard header "Sound BlasterX Katana"). 4. SPP control
+connection opens (MainService foreground + live device data). 5. Connected device
+UI renders. 6. Presets and per-source availability read from the speaker. 7. No
+new `SecurityException` attributable to the change (the only `System.err`
+exceptions are the stock `SbxDeviceManager` A2DP/Headset `BLUETOOTH_CONNECT`
+profile probes, independent of export flags). 8. Zero `Permission Denial` against
+the three components.
+
+### Verdict: HARDENING_PASS
+
+The connection path and the boot auto-start both remain intact with all three
+components `NOT_EXPORTED`, so no component reverts. The one component that could
+not be exercised at runtime (`MediaButtonReceiver`) is held `exported="false"` on
+the static justification above; if a local-playback MediaSession path is ever
+added and a media-button regression appears, re-grade it here.
 
 ## Cross-references
 

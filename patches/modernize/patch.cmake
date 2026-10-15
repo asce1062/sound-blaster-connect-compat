@@ -157,14 +157,20 @@ message(STATUS "modernize: targetSdkVersion 26 -> ${final_target}")
 set(mf "${TREE}/AndroidManifest.xml")
 
 # --- >=31: explicit android:exported on every filtered component -----------
-# Launcher, the BT/system receiver, the notification-listener service and the
-# media-button receiver are driven by the system, so they stay exported.
-# AppMeasurementReceiver is fed only by in-package broadcasts, so false.
+# API 31+ requires an explicit android:exported on any filtered component.
+# Only two first-party components need outside access: MainActivity (the
+# launcher) and LocalMusicRemoteControllerService (the system binds it as a
+# NotificationListenerService, gated by BIND_NOTIFICATION_LISTENER_SERVICE), so
+# both stay exported. MainReceiver, MainService, and the media-button receiver
+# are reached only by protected system broadcasts, same-app intents, and the
+# app's own PendingIntents, never by a third-party app, so they are NOT_EXPORTED
+# per RECEIVER_AUDIT.md findings R1-R3. AppMeasurementReceiver is fed only by
+# in-package broadcasts, so false.
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainActivity\""
          "android:exported=\"true\" android:name=\"com.creative.apps.sbconnect.MainActivity\""
          1)
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainReceiver\""
-         "android:exported=\"true\" android:name=\"com.creative.apps.sbconnect.MainReceiver\""
+         "android:exported=\"false\" android:name=\"com.creative.apps.sbconnect.MainReceiver\""
          1)
 _sbc_sub("${mf}"
          "android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\""
@@ -172,11 +178,19 @@ _sbc_sub("${mf}"
          1)
 _sbc_sub("${mf}"
          "android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
-         "android:exported=\"true\" android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
+         "android:exported=\"false\" android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
          1)
 _sbc_sub("${mf}"
          "android:name=\"com.google.android.gms.measurement.AppMeasurementReceiver\""
          "android:exported=\"false\" android:name=\"com.google.android.gms.measurement.AppMeasurementReceiver\""
+         1)
+# MainService carries a stock android:exported="true"; it is started only by
+# explicit in-package intents and the app's own notification PendingIntents, so
+# flip it to false as well (RECEIVER_AUDIT.md R2). Anchored on the unique
+# label="MainService".
+_sbc_sub("${mf}"
+         "android:exported=\"true\" android:label=\"MainService\""
+         "android:exported=\"false\" android:label=\"MainService\""
          1)
 
 # --- >=31 Bluetooth + >=33 notifications + >=34 foreground service perms ---
