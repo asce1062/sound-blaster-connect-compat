@@ -31,6 +31,15 @@ The repository contains:
 Method, field and class names in patches and harness code are the identifiers
 the stock app uses; they are needed to bind to it.
 
+## License
+
+This project's original contributions are licensed under the MIT license in
+[LICENSE](LICENSE). The license grants no rights in the stock app, its code,
+resources or identifiers, or in Creative's trademarks. Which contents are
+original and which are derived from the stock app is set out in
+[PROVENANCE.md](docs/PROVENANCE.md); that classification is subject to an open
+provenance review.
+
 ## Third-party tools
 
 The build downloads these tools at configure time, verifies their SHA-256 and

@@ -69,7 +69,9 @@ if(sbc_ndk_root STREQUAL "")
     message(
         WARNING
             "native: NDK ${ndk_version} not found; the arm64 variant is disabled.\n"
-            "  Install it (sdkmanager \"ndk;${ndk_version}\") or pass -Dandroid_ndk=<root>.")
+            "  Install it with the Android Studio SDK Manager or\n"
+            "  'android sdk install ndk/${ndk_version}', or pass -Dandroid_ndk=<root>.\n"
+            "  See docs/development/BUILDING.md.")
     return()
 endif()
 set(sbc_native_available TRUE)

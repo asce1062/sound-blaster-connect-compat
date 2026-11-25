@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.22)
 # Top-level build for the Sound Blaster Connect compatibility APKs: decode the
 # stock APK, apply per-variant patch sets, rebuild, sign, and optionally deploy.
 project(
-    sbconnect_bringup
+    sbconnect_compat
     VERSION 1.0.0
-    DESCRIPTION "Sound Blaster Connect APK bring-up: decode, patch, rebuild, sign"
-    HOMEPAGE_URL "https://github.com/asce1062/SBConnect"
+    DESCRIPTION "SB Connect Compat: compatibility builds of Sound Blaster Connect for current Android"
+    HOMEPAGE_URL "https://github.com/asce1062/sound-blaster-connect-compat"
     LANGUAGES NONE)
 
 # ---------------------------------------------------------------------------
@@ -115,7 +115,8 @@ if(NOT EXISTS "${apk_input}")
             "apk_input does not exist: '${apk_input}'\n"
             "  The stock APK is not part of this repository. Place your own copy of\n"
             "  SBConnect_v1.04.02.apk (SHA-256 ${apk_input_sha256}) at\n"
-            "  inputs/SBConnect_v1.04.02.apk, or pass -Dapk_input=<path>. See BUILDING.md.")
+            "  inputs/SBConnect_v1.04.02.apk, or pass -Dapk_input=<path>.\n"
+            "  See docs/development/BUILDING.md.")
 endif()
 
 # --- fetch helper: download once, verify SHA-256 when provided --------------

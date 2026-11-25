@@ -23,10 +23,17 @@ The NDK is found through `-Dandroid_ndk=<root>`, `ANDROID_NDK_ROOT`,
 `ANDROID_NDK_HOME`, or `ndk/25.1.8937393` under `ANDROID_SDK_ROOT`,
 `ANDROID_HOME` or `%LOCALAPPDATA%/Android/Sdk`. Only an NDK whose
 `source.properties` reports revision `25.1.8937393` is accepted. Install it from
-the Android Studio SDK Manager or with `sdkmanager "ndk;25.1.8937393"`. Recent
-SDKs replace `sdkmanager` with a wrapper around the `android` command-line tool
-that ignores `;`-separated package names and still exits 0; check that
-`ndk/25.1.8937393/source.properties` exists after installing. Without the NDK,
+the Android Studio SDK Manager, or from the command line:
+
+| Command-line tools | Command |
+|---|---|
+| Android CLI (`cmdline-tools/latest/bin/android`) | `android sdk install ndk/25.1.8937393` |
+| Older `sdkmanager` releases | `sdkmanager "ndk;25.1.8937393"` |
+
+In current command-line tools `sdkmanager` is a wrapper around the Android CLI.
+It does not accept `;`-separated package names, installs nothing and still
+exits 0. Check that `ndk/25.1.8937393/source.properties` exists after
+installing. Without the NDK,
 configure prints a warning, `resign` and `modernize` still build, and the
 `arm64` variant is not defined.
 

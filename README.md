@@ -61,3 +61,9 @@ Details in [BUILDING.md](docs/development/BUILDING.md).
 - design decisions: [`docs/decisions/`](docs/decisions/)
 - how the behavior was established: [`docs/research/`](docs/research/)
 - contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## License
+
+MIT for this project's original contributions ([LICENSE](LICENSE)). The stock
+app and Creative's trademarks are not covered; see [NOTICE.md](NOTICE.md) and
+[PROVENANCE.md](docs/PROVENANCE.md).
