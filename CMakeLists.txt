@@ -8,8 +8,7 @@ project(
     LANGUAGES NONE)
 
 # ---------------------------------------------------------------------------
-# 3-state pipeline (mirrors a sibling project's model, minus the asset
-# crypto this APK does not use):
+# 3-state pipeline:
 #
 #   1. configure  verify the input APK, fetch + verify apktool + signer,
 #                 decode => decompiled/ (pristine)
@@ -50,9 +49,8 @@ set(apk_input_sha256
     "fe1ffe0c93b6476ae6ed1d2cb6891cde2fbe206d4e898d6ad8c75222e9bf99be"
     CACHE STRING "Expected SHA-256 of apk_input (empty = print actual only)")
 
-# Tool pins. These exact jars + hashes are the ones a sibling project
-# builds against (CI-verified there); reused so a corrupted or swapped
-# download fails the configure instead of breaking a build mid-run.
+# Tool pins. Each jar is verified against its SHA-256, so a corrupted or
+# swapped download fails the configure instead of breaking a build mid-run.
 set(apktool_version
     "3.0.3"
     CACHE STRING "apktool version")
