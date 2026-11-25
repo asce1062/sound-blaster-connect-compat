@@ -10,8 +10,11 @@ Repackaging alone does not change that; this patch adds 64-bit builds of both
 libraries alongside the stock 32-bit ones, giving one APK for both kinds of
 device.
 
-Status: both libraries are reimplemented, built from source and validated on
-hardware (`docs/arm64/ARM64_VERDICT.md`, `docs/arm64/ARM64_RUNTIME.md`).
+Both libraries are reimplemented and built from source. The arm64 build has
+been run on two 64-bit-only phones with a Katana speaker
+([ARM64_RUNTIME.md](../../docs/research/arm64/ARM64_RUNTIME.md)); the
+CtProtocol core matches the stock library on every frozen vector
+([`oracle/vectors/`](../../oracle/vectors/)).
 
 ## The two libraries
 
@@ -38,8 +41,10 @@ patch.cmake                 copies the built libs into the staged tree
 
 The output is stripped and built with `-ffile-prefix-map`, so it carries no
 build-machine paths. With the pinned NDK the libraries are byte-identical
-across source locations, and every loaded section matches the libraries
-validated on hardware.
+across source locations.
 
-See [docs/arm64/RE.md](../../docs/arm64/RE.md) for the symbol inventory and
-the command frame spec.
+The JNI surface and library details are in
+[NATIVE_LIBRARIES.md](../../docs/technical/NATIVE_LIBRARIES.md) and
+[JNI_INTERFACE.md](../../docs/technical/JNI_INTERFACE.md); the command frame
+format and the encoder and decoder contracts in
+[CTPROTOCOL.md](../../docs/technical/CTPROTOCOL.md).

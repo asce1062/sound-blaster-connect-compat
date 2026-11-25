@@ -78,8 +78,9 @@ All passed on the rewritten repository:
 
 1. Only `refs/heads/main`; no tags, stash, `refs/original`, `refs/replace` or
    filter-repo state.
-2. The tip tree hash equals the pre-rewrite tip tree hash
-   (`a76837f700f7834a7c713179ac70f0c64f8737ef`).
+2. The tree of the rewritten tip, commit `87d980a`, equals the pre-rewrite tip
+   tree (`a76837f700f7834a7c713179ac70f0c64f8737ef`). Later commits change the
+   tree.
 3. No path matching `*.apk`, `*.aab`, `*.so`, `*.jks`, `*.keystore`, `*.p12`
    or `*.pk8` in any commit.
 4. Zero matches for every private, LFS or agent-branch pattern across all
