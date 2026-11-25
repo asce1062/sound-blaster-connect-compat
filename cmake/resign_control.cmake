@@ -1,4 +1,4 @@
-# resign_control.cmake — payload-preserving re-sign of the stock APK.
+# resign_control.cmake: payload-preserving re-sign of the stock APK.
 #
 #   cmake -DINPUT=<stock.apk> -DSTAGED=<staged.apk> -DOUTDIR=<dir> \
 #         -DJAVA=<java> -DSIGNER=<uber-apk-signer.jar> -DZIPALIGN=<zipalign> \
@@ -49,7 +49,7 @@ else()
     endif()
 endif()
 
-# 2. Re-sign (debug key), skipping the signer's own realign — STAGED is aligned.
+# 2. Re-sign (debug key), skipping the signer's own realign: STAGED is aligned.
 message(STATUS "resign: signing with uber-apk-signer (--skipZipAlign --allowResign)")
 execute_process(
     COMMAND "${JAVA}" -jar "${SIGNER}" -a "${STAGED}" --out "${OUTDIR}"

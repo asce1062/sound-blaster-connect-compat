@@ -19,6 +19,11 @@
 
 
 # direct methods
+
+# ensure(context, builder): sets the channel id "sbconnect_fg" on the builder
+# on every API level. On API 26 (0x1a) and above it also creates the channel
+# named "Sound Blaster Connect" with importance 2 (IMPORTANCE_LOW). The builder
+# is mutated in place and nothing is returned.
 .method public static ensure(Landroid/content/Context;Landroid/support/v4/app/NotificationCompat$Builder;)V
     .locals 5
 

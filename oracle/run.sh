@@ -7,6 +7,16 @@
 # libsbxapplogic_ctprotocol_jni.so to a running 32-bit x86 emulator, and runs
 # the harness under app_process32. Prints the harness stdout (ENC/DEC lines).
 #
+#   <path-to-.so>      the library under test: the stock x86 library or an x86
+#                      build of the portable reimplementation
+#   enc                runs the fixed encode vector set (no corpus)
+#   dec | seq          runs the decode corpus given as the third argument
+#   [corpus-hex-file]  one hex frame per line (dec) or blank-line-separated
+#                      groups of frames (seq); required for dec and seq
+#
+# Requires: Android SDK (platform-tools, platforms/android-30, build-tools
+# 33.0.1 for d8) and a running x86 emulator reachable by adb.
+#
 # MSYS path conversion is disabled so adb remote paths (/data/...) survive; the
 # few local paths handed to java/javac/adb are converted to Windows form.
 set -euo pipefail

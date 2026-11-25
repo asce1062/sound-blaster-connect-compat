@@ -1,30 +1,54 @@
-# modernize/patch.cmake — raise the target API level and apply the Android
+# modernize/patch.cmake: raise the target API level and apply the Android
 # 12/13/14 behavior changes that follow.
 #
 # Runs with ${TREE} set to the staged (fresh) copy of the pristine decompiled/
-# tree. Edits are in-place (apktool.yml, AndroidManifest.xml, smali); this
-# patch ships no overlay/ tree.
+# tree. Edits are in place (apktool.yml, AndroidManifest.xml, smali), and the
+# overlay tree patches/modernize/overlay/ is copied onto the tree first by
+# apply_patch.cmake. The overlay supplies the smali helper classes that the
+# edits below call: BtPermCompat, FgChannelCompat and RcvCompat.
 #
-# Target: raise targetSdkVersion 26 -> 34. Every change below is required by,
-# and verified against, the component inventory in docs/FINDINGS.md:
+# Method and field names in the smali anchors below (for example MainService.a(),
+# MainActivity.D(), SbxConnectionManager.f() and the field j) are the obfuscated
+# names of stock Sound Blaster Connect 1.04.02. The patch applies only to that
+# exact release, and every anchor asserts its expected occurrence count.
 #
-#   * exported (>=31): the 5 filtered components that lacked an explicit
-#     android:exported. Without this the package will not install on 31+.
+# What the patch does, with the component inventory in
+# docs/research/android/FINDINGS.md as the reference:
+#
+#   * targetSdkVersion: 26 -> 34 in apktool.yml.
+#   * exported (>=31): explicit android:exported on every filtered component
+#     that lacked it. Without it the package does not install on 31+.
+#     MainActivity and LocalMusicRemoteControllerService stay exported;
+#     MainReceiver, MainService, MediaButtonReceiver and AppMeasurementReceiver
+#     are not exported (docs/research/android/RECEIVER_AUDIT.md).
+#   * uses-library (>=28): org.apache.http.legacy and android.test.base are
+#     re-added as optional libraries (required=false) because the default
+#     classpath no longer carries them.
 #   * PendingIntent FLAG_IMMUTABLE (>=31): all 23 PendingIntent construction
 #     sites. Without a mutability flag, getActivity/getService/getBroadcast/
 #     getActivities throws IllegalArgumentException at runtime on 31+.
-#   * Bluetooth runtime permissions (>=31): BLUETOOTH_SCAN / BLUETOOTH_CONNECT;
-#     the legacy BLUETOOTH / BLUETOOTH_ADMIN are capped at maxSdkVersion 30.
-#   * POST_NOTIFICATIONS (>=33): runtime notification permission.
+#   * Bluetooth permissions (>=31): BLUETOOTH_SCAN / BLUETOOTH_CONNECT are
+#     declared; the legacy BLUETOOTH / BLUETOOTH_ADMIN are capped at
+#     maxSdkVersion 30.
+#   * POST_NOTIFICATIONS (>=33) is declared.
 #   * foregroundServiceType + FOREGROUND_SERVICE* (>=34): MainService is a
 #     foreground service (2-arg startForeground, so it adopts the manifest
 #     type). mediaPlayback has no dangerous-permission prerequisite, so the
-#     service still starts before the BT runtime permissions are granted.
+#     service starts before the Bluetooth runtime permissions are granted.
+#   * Foreground-notification channel (>=26): FgChannelCompat.ensure() is
+#     called after each channel-less NotificationCompat.Builder constructor in
+#     MainService.
+#   * Receiver registration (>=34): every two-arg registerReceiver call in the
+#     smali tree is redirected to RcvCompat.register (96 sites).
+#   * Runtime permission chain (>=31): BtPermCompat requests the Nearby
+#     devices (BLUETOOTH_CONNECT/SCAN) and notification permissions in
+#     sequence after the stock permission request, and gates Bluetooth
+#     discovery and bonded-device enumeration until the grant lands.
+#   * Notification-listener prompt: the stock prompt for notification-listener
+#     access is suppressed.
 #
-# What is NOT done here (needs a device): the runtime *request* UI for
-# BLUETOOTH_SCAN/CONNECT and POST_NOTIFICATIONS. Declaring them lets the user
-# grant them in Settings; wiring requestPermissions() into the app's flow is
-# the device-gated follow-up. See README.md.
+# CtProtocol and the native libraries are untouched by this patch; the arm64
+# variant adds its own libraries (patches/arm64/).
 
 set(final_target "34")
 
@@ -163,8 +187,8 @@ set(mf "${TREE}/AndroidManifest.xml")
 # NotificationListenerService, gated by BIND_NOTIFICATION_LISTENER_SERVICE), so
 # both stay exported. MainReceiver, MainService, and the media-button receiver
 # are reached only by protected system broadcasts, same-app intents, and the
-# app's own PendingIntents, never by a third-party app, so they are NOT_EXPORTED
-# per RECEIVER_AUDIT.md findings R1-R3. AppMeasurementReceiver is fed only by
+# app's own PendingIntents, never by a third-party app, so they are not exported
+# (docs/research/android/RECEIVER_AUDIT.md, findings R1-R3). AppMeasurementReceiver is fed only by
 # in-package broadcasts, so false.
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainActivity\""
          "android:exported=\"true\" android:name=\"com.creative.apps.sbconnect.MainActivity\""
@@ -186,7 +210,7 @@ _sbc_sub("${mf}"
          1)
 # MainService carries a stock android:exported="true"; it is started only by
 # explicit in-package intents and the app's own notification PendingIntents, so
-# flip it to false as well (RECEIVER_AUDIT.md R2). Anchored on the unique
+# flip it to false as well (docs/research/android/RECEIVER_AUDIT.md, R2). Anchored on the unique
 # label="MainService".
 _sbc_sub("${mf}"
          "android:exported=\"true\" android:label=\"MainService\""
@@ -204,9 +228,9 @@ _sbc_sub("${mf}"
          1)
 # Note: android:usesPermissionFlags="neverForLocation" on BLUETOOTH_SCAN is
 # omitted. apktool's pinned framework (api 23 attr table) predates that API-31
-# attribute, so aapt2 rejects it. The app already declares ACCESS_FINE_LOCATION,
-# so scanning works with location granted; neverForLocation would only let the
-# app skip the location grant, which is not required here.
+# attribute, so aapt2 rejects it. The app declares ACCESS_FINE_LOCATION, so
+# scanning works with location granted; neverForLocation would only let the
+# app skip the location grant, which is not required.
 
 # --- >=34: MainService foreground service type -----------------------------
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainService\">"
@@ -219,8 +243,8 @@ _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainService\">"
 # re-add each as a uses-library (required=false so install still succeeds
 # where it is absent) as the first children of <application>:
 #   org.apache.http.legacy - JSONParser uses DefaultHttpClient, so
-#     MainActivity$ParseJsonTask throws NoClassDefFoundError under the raised
-#     target.
+#     MainActivity$ParseJsonTask throws NoClassDefFoundError without the
+#     library under the raised target.
 #   android.test.base - holds junit.framework.* / junit.runner.*. Utils.b()
 #     calls junit.framework.Assert as an inline runtime assertion, reached from
 #     SbxModifiableProfileMainFragment$ProfileListAdapter.onBindViewHolder (the
@@ -354,17 +378,13 @@ message(STATUS "modernize: foreground-service notification channel shim wired (2
 # ---------------------------------------------------------------------------
 # >=34 runtime receiver export. registerReceiver() for a non-system broadcast
 # must pass RECEIVER_EXPORTED/RECEIVER_NOT_EXPORTED under target 34+; the
-# two-arg call throws SecurityException on a 34+ device. The first site runs in
-# MainActivity.onCreate (LocalMusicManager) and more run in onStart (fragments
-# via FragmentActivity), so the app crashes on launch on Android 14+. A further
-# site runs inside the bundled ibluz Bluetooth library (smali/c, obfuscated c.d)
-# during BluzDeviceFactory.getDevice when the SPP control channel opens; its
-# SecurityException is swallowed, so the app survives but the device connection
-# silently fails and the "device in use" state never clears. Redirect every
-# two-arg registerReceiver call, in every dex and package (the stock app, the
-# ibluz library, and support classes), to the RcvCompat.register shim (modernize
-# overlay), which passes RECEIVER_EXPORTED on 34+ and is unchanged below.
-# 96 sites across the whole smali tree.
+# two-arg call throws SecurityException on a 34+ device. Call sites exist in
+# the app's activities and fragments and inside the bundled ibluz Bluetooth
+# library (smali/c), so every one must be redirected. Redirect every two-arg
+# registerReceiver call, in every dex and package (the stock app, the ibluz
+# library, and support classes), to the RcvCompat.register shim (modernize
+# overlay), which passes RECEIVER_EXPORTED on 34+ and calls the two-arg form
+# below 34. 96 sites across the whole smali tree.
 # ---------------------------------------------------------------------------
 
 _sbc_receiver_export_tree(96)
@@ -372,31 +392,29 @@ _sbc_receiver_export_tree(96)
 message(STATUS "modernize: registerReceiver export shim wired (96 sites, whole smali tree)")
 
 # ---------------------------------------------------------------------------
-# >=31 Nearby Devices runtime permission request flow. Device-gated follow-up
-# to the BLUETOOTH_SCAN/CONNECT manifest declarations above (the request UI the
-# header notes was left for a device). The stock app predates the API 31
-# Bluetooth permission split and never calls requestPermissions, so on 31+ the
-# runtime permissions sit denied, every Bluetooth call throws SecurityException,
-# and bonded-device enumeration and the SPP connection fail silently - no device
-# is ever found. BtPermCompat (modernize overlay) requests BLUETOOTH_CONNECT and
-# BLUETOOTH_SCAN (the connect and discovery paths use both), resumes the normal
-# init path via Activity.recreate() on grant, and gates the connection manager's
-# discovery (startDiscovery) and bonded-enumeration (getBondedDevices) entry
-# points so they no-op instead of throwing until the grant lands. Below 31 the
-# legacy install-time permissions apply and the shim is inert. CtProtocol and the
-# native libraries are untouched.
+# >=31 Nearby Devices runtime permission request flow, for the
+# BLUETOOTH_SCAN/CONNECT and POST_NOTIFICATIONS manifest declarations above.
+# The stock app predates the API 31 Bluetooth permission split and never
+# requests them, so on 31+ the runtime permissions stay denied and every
+# Bluetooth call throws SecurityException. BtPermCompat (modernize overlay)
+# requests BLUETOOTH_CONNECT and BLUETOOTH_SCAN (the connect and discovery
+# paths use both), resumes the normal init path via Activity.recreate() on
+# grant, and gates the connection manager's discovery (startDiscovery) and
+# bonded-enumeration (getBondedDevices) entry points so they no-op instead of
+# throwing until the grant lands. Below 31 the legacy install-time permissions
+# apply and the shim is inert.
 #
 # The requests are chained off each preceding result rather than fired together
 # from onCreate: onCreate's D() already calls requestPermissions (code 0x457) for
 # the stock runtime permissions (camera/mic/location), and Android drops a second
-# requestPermissions while a dialog sequence is still pending - firing the BT
-# request from onCreate therefore never shows its dialog. onResult instead walks a
-# sequential chain, each link firing when the previous result returns:
+# requestPermissions while a dialog sequence is still pending. onResult
+# therefore walks a sequential chain, each link firing when the previous result
+# returns:
 #   0x457 (stock) -> ensure() requests BLUETOOTH_CONNECT/SCAN (0x42c)
 #   0x42c (BT)    -> askNotif() requests POST_NOTIFICATIONS (0x42d, API 33+)
 #   0x42d (notif) -> resume() recreates on BT grant
 # so the dialogs appear back to back (location/mic, Nearby devices, notifications).
-# POST_NOTIFICATIONS is already declared in the manifest block above; without the
+# POST_NOTIFICATIONS is declared in the manifest block above; without the
 # runtime request it stays denied and the app cannot post its foreground-service or
 # media notifications. D()'s request is unconditional, so the chain fires on every
 # launch and is a no-op once the grants are held.
@@ -427,15 +445,15 @@ message(STATUS "modernize: runtime permission chain wired (BtPermCompat: stock -
 
 # ---------------------------------------------------------------------------
 # Notification-listener access prompt: suppressed. MainActivity.v() prompts
-# (MainActivity.w) for notification-listener access to feed the now-playing
-# metadata feature (LocalMusicRemoteControllerService), which drives the removed
+# (MainActivity.w) for notification-listener access to feed the playback-metadata
+# feature (LocalMusicRemoteControllerService), which drives the removed
 # android.media.RemoteController API and is inert on modern Android. The grant is
-# a system-level "read all notifications" permission that buys no working feature
-# here, and the system pane cannot be reduced to a single focused toggle on Samsung
-# (OneUI renders the per-app deep-link as the full listener list) nor made to return
-# to the app afterward (API 34+ background-activity-launch forbids a listener service
-# from foregrounding an activity). Drop the call to w() so the dialog never fires;
-# the Bluetooth/notification runtime-permission chain above is unaffected.
+# a system-level "read all notifications" permission that enables no working
+# feature here. The system settings pane cannot be reduced to a single focused
+# toggle on every OEM skin, and API 34+ background-activity-launch rules forbid a
+# listener service from bringing an activity to the foreground to return the user
+# to the app. The call to w() is removed so the dialog is never shown; the
+# Bluetooth/notification runtime-permission chain above is unaffected.
 # ---------------------------------------------------------------------------
 set(ma "${TREE}/smali/com/creative/apps/sbconnect/MainActivity.smali")
 

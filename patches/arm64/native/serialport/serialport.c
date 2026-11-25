@@ -1,18 +1,22 @@
-/*
- * libserialport_jni.so - arm64-v8a reimplementation.
+/**
+ * @file serialport.c
+ * @brief libserialport_jni.so: portable reimplementation of the stock serial
+ *        port JNI library.
  *
  * Behaviour-faithful rebuild of the stock 32-bit libserialport_jni.so shipped
- * in SBConnect_v1.04.02.apk, recovered by decompiling native_open/native_close/
- * JNI_OnLoad (docs/arm64/RE.md). It is a thin JNI wrapper over a POSIX tty, the
- * same contract as the public android-serialport-api, bound to
- * com.creative.serialport.SerialPort via RegisterNatives:
+ * in SBConnect_v1.04.02.apk, for any ABI the project builds (see
+ * docs/research/arm64/RE.md and docs/technical/NATIVE_LIBRARIES.md). It is a
+ * thin JNI wrapper over a POSIX tty, the same contract as the public
+ * android-serialport-api, bound to com.creative.serialport.SerialPort via
+ * RegisterNatives:
  *
  *     private native FileDescriptor open(String path, int baudrate);
  *     public  native int            close();
  *
  * The stock lib keeps a single process-global fd: open() stores it and also
  * returns a java.io.FileDescriptor wrapping it; close() shuts that global fd.
- * Reproduced here so arm64 behaves exactly as the 32-bit original.
+ * Reproduced here so every ABI behaves as the 32-bit original does. Because the
+ * descriptor is global, the library supports one open port at a time.
  */
 #include <jni.h>
 #include <android/log.h>
@@ -25,7 +29,9 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-/* Single global descriptor, matching the stock lib. */
+/* Single global descriptor, matching the stock lib: -1 when no port is open.
+ * It is not synchronized, and open() overwrites it without closing a
+ * descriptor from an earlier open(), as the stock library does. */
 static int s_fd = -1;
 
 /*
@@ -50,7 +56,7 @@ static int baud_to_cbaud(int baud) {
         case 4800:    return 0xc;
         case 9600:    return 0xd;
         case 19200:   return 0xe;
-        case 38400:   return 0xf;    /* the Katana's rate (0x9600) */
+        case 38400:   return 0xf;    /* B38400 */
         case 57600:   return 0x1001;
         case 115200:  return 0x1002;
         case 230400:  return 0x1003;
@@ -70,6 +76,25 @@ static int baud_to_cbaud(int baud) {
     }
 }
 
+/**
+ * @brief Java `private native FileDescriptor open(String path, int baudrate)`.
+ *
+ * Opens `path` read/write, switches the line to raw 8N1 at `baudrate`, stores
+ * the descriptor in the process-global s_fd and returns a java.io.FileDescriptor
+ * holding the same descriptor number. A previously open descriptor is not
+ * closed first.
+ *
+ * @param env       JNI environment.
+ * @param thiz      The SerialPort instance (unused).
+ * @param path      Device path, for example a tty node. Must not be null.
+ * @param baudrate  Decimal baud rate. Only the rates listed in baud_to_cbaud
+ *                  are accepted.
+ * @return          A new FileDescriptor, or null when the baud rate is not
+ *                  supported, the device cannot be opened, or the termios get or
+ *                  set fails. On a termios failure the descriptor is closed and
+ *                  s_fd is reset to -1. Failures are logged with the
+ *                  "serialport_jni" tag and raise no Java exception.
+ */
 static jobject native_open(JNIEnv *env, jobject thiz, jstring path, jint baudrate) {
     (void) thiz;
 
@@ -81,7 +106,9 @@ static jobject native_open(JNIEnv *env, jobject thiz, jstring path, jint baudrat
 
     const char *file = (*env)->GetStringUTFChars(env, path, NULL);
     LOGD("open: %s", file);
-    /* O_RDWR | O_NOCTTY | 0x1000 - stock flag word 0x1102, identical on arm/arm64 bionic. */
+    /* Flag word 0x1102 as in the stock lib: O_RDWR (0x2) | O_NOCTTY (0x100) |
+     * 0x1000 (O_DSYNC in the Linux generic ABI). The raw value is kept; it is
+     * the same on arm and arm64 bionic. */
     s_fd = open(file, 0x1102);
     LOGD("open fd = %d", s_fd);
     (*env)->ReleaseStringUTFChars(env, path, file);
@@ -99,7 +126,15 @@ static jobject native_open(JNIEnv *env, jobject thiz, jstring path, jint baudrat
         return NULL;
     }
 
-    /* Raw-mode flag masks, exactly as the stock lib set them. */
+    /* Raw 8N1 mode. The masks are the stock library's raw values, kept as
+     * literals. In Linux termios terms:
+     *   c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON)
+     *   c_oflag &= ~OPOST
+     *   c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN)
+     *   c_cflag  = (c_cflag & ~(CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB))
+     *              | CS8 | <speed from baud_to_cbaud>
+     * This is the same flag set as cfmakeraw() clears; c_cc is not modified.
+     * c_cflag keeps CREAD, PARODD, HUPCL and CLOCAL as read from the device. */
     cfg.c_iflag &= 0xfffffa14u;
     cfg.c_oflag &= 0xfffffffeu;
     cfg.c_lflag &= 0xffff7fb4u;
@@ -120,6 +155,18 @@ static jobject native_open(JNIEnv *env, jobject thiz, jstring path, jint baudrat
     return fdObj;
 }
 
+/**
+ * @brief Java `public native int close()`.
+ *
+ * Closes the process-global descriptor if one is open and resets it to -1.
+ * Preserved from stock: the return value is always 1, whether or not a port was
+ * open and whether or not close(2) succeeded, and the Java FileDescriptor
+ * returned by open() is not invalidated.
+ *
+ * @param env   JNI environment (unused).
+ * @param thiz  The SerialPort instance (unused).
+ * @return      Always 1.
+ */
 static jint native_close(JNIEnv *env, jobject thiz) {
     (void) env;
     (void) thiz;
@@ -130,11 +177,21 @@ static jint native_close(JNIEnv *env, jobject thiz) {
     return 1;
 }
 
+/* Methods registered on com.creative.serialport.SerialPort by JNI_OnLoad. */
 static const JNINativeMethod kMethods[] = {
     { "open",  "(Ljava/lang/String;I)Ljava/io/FileDescriptor;", (void *) native_open },
     { "close", "()I",                                           (void *) native_close },
 };
 
+/**
+ * @brief Library load hook: registers open() and close() on
+ *        com.creative.serialport.SerialPort.
+ *
+ * @param vm        The Java VM.
+ * @param reserved  Unused.
+ * @return          JNI_VERSION_1_6 on success, or -1 when GetEnv, FindClass or
+ *                  RegisterNatives fails.
+ */
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     (void) reserved;
     JNIEnv *env = NULL;

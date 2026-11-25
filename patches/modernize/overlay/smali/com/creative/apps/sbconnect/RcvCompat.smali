@@ -8,11 +8,9 @@
 # registered exclusively for protected system broadcasts. An app targeting
 # API 34+ that calls the two-arg registerReceiver on a 34+ device gets
 # SecurityException ("One of RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED should
-# be specified ...") and the activity/service crashes. The stock app registers
-# many receivers with the two-arg call; the first one runs in
-# MainActivity.onCreate (LocalMusicManager), so the app dies on launch on a
-# 34+ device (the 33 and below platforms never check, which is why it ran on
-# Android 13).
+# be specified ...") and the calling activity or service crashes. The stock app
+# registers many receivers with the two-arg call. Platforms below API 34 do not
+# perform this check.
 #
 # Every stock two-arg Context.registerReceiver call is redirected here. On
 # API 34+ this passes RECEIVER_EXPORTED (0x2); below 34 it calls the original
@@ -26,6 +24,11 @@
 
 
 # direct methods
+
+# register(context, receiver, filter): drop-in replacement for the two-arg
+# Context.registerReceiver. Returns the same sticky Intent (or null) that
+# registerReceiver returns. 0x22 is API 34; the flag value 0x2 is
+# RECEIVER_EXPORTED.
 .method public static register(Landroid/content/Context;Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
     .locals 2
 

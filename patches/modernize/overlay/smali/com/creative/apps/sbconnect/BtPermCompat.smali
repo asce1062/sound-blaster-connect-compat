@@ -36,6 +36,9 @@
 
 
 # direct methods
+
+# ensure(activity): requests BLUETOOTH_CONNECT and BLUETOOTH_SCAN under request
+# code 0x42c. No-op below API 31 (0x1f) and when BLUETOOTH_CONNECT is held.
 .method public static ensure(Landroid/app/Activity;)V
     .locals 3
 
@@ -82,6 +85,8 @@
     return-void
 .end method
 
+# ok(context): true below API 31, otherwise true only while BLUETOOTH_CONNECT is
+# granted. Only BLUETOOTH_CONNECT is consulted, not BLUETOOTH_SCAN.
 .method public static ok(Landroid/content/Context;)Z
     .locals 2
 
@@ -114,6 +119,10 @@
     return v0
 .end method
 
+# onResult(activity, requestCode, permissions, grantResults): advances the chain
+# described in the header. Request codes other than 0x457, 0x42c and 0x42d are
+# ignored. The permissions and grantResults arguments are not read; the grants
+# are re-checked with checkSelfPermission.
 .method public static onResult(Landroid/app/Activity;I[Ljava/lang/String;[I)V
     .locals 1
 
@@ -155,6 +164,9 @@
     return-void
 .end method
 
+# askNotif(activity): requests POST_NOTIFICATIONS under request code 0x42d and
+# returns true if a request was fired. Returns false, without requesting, below
+# API 33 (0x21) or when the permission is already held.
 .method public static askNotif(Landroid/app/Activity;)Z
     .locals 3
 
@@ -201,6 +213,9 @@
     return v0
 .end method
 
+# resume(activity): recreates the activity when BLUETOOTH_CONNECT is held, so
+# the stock initialization path runs again with the permission in place. Does
+# nothing otherwise.
 .method public static resume(Landroid/app/Activity;)V
     .locals 1
 

@@ -1,4 +1,4 @@
-# deploy_apk.cmake — adb install + launch + logcat watch.
+# deploy_apk.cmake: adb install + launch + logcat watch.
 #
 #   cmake -DPKG= -DAPK= -DDEBUG=ON|OFF -DTIMEOUT=<s> -DADB_SERIAL= -DADB_BIN=adb -P deploy_apk.cmake
 #
@@ -22,8 +22,11 @@ execute_process(
     COMMAND "${adb}" ${serial_args} install -r -d "${APK}"
     RESULT_VARIABLE rc)
 if(rc)
-    # -r (reinstall) fails when the signing key differs from an installed
-    # copy; uninstall and retry once.
+    # Contract: the package is uninstalled only after `install -r` has failed,
+    # for example because the signing key differs from the installed copy.
+    # Uninstalling destroys the app's data on the device, so a successful
+    # in-place reinstall never reaches this branch. After the uninstall the
+    # install is retried once, without -r, and a second failure is fatal.
     message(STATUS "deploy: reinstall failed, uninstalling ${PKG} and retrying")
     execute_process(COMMAND "${adb}" ${serial_args} uninstall "${PKG}")
     execute_process(

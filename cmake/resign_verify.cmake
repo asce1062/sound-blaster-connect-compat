@@ -1,4 +1,4 @@
-# resign_verify.cmake — prove a signed APK is payload-identical to the stock.
+# resign_verify.cmake: verify that a signed APK is payload-identical to the stock.
 #
 #   cmake -DSTOCK=<stock.apk> -DCAND=<candidate.apk> -DWORK=<scratch dir> \
 #         -P resign_verify.cmake

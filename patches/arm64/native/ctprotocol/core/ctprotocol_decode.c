@@ -1,18 +1,22 @@
 /*
  * ctprotocol-core: portable SPP inbound decoder (implementation).
  *
- * Reproduces the stock Decode::decode dispatcher (x86 @0001a520). Validation,
- * field extraction and dispatch mirror the decompiled stock logic; the exact
- * Java argument order and the per-byte field mapping of every reachable family
- * were pinned against the stock x86 oracle (docs/arm64/decode/, the dec_probe
- * sweeps in the RE workspace). No stream buffering, concatenation, resync,
- * trailing-byte tolerance or recovery: one frame per call, exact length.
+ * Reproduces the stock Decode::decode dispatcher. Validation, field extraction
+ * and dispatch follow the stock logic; the Java argument order and the per-byte
+ * field mapping of every reachable family match the stock library for the
+ * vectors in oracle/vectors/dec_*.{txt,out.txt} (see docs/research/decoder/ and
+ * docs/technical/CTPROTOCOL.md). Provenance: stock x86 library, dispatcher at
+ * offset 0x1a520. No stream buffering, concatenation, resync, trailing-byte
+ * tolerance or recovery: one frame per call, exact length.
  *
  * The caller must pass a buffer of at least CTP_DECODE_MINBUF bytes, with the
- * first `len` bytes holding the frame and the remainder zero. A handful of stock
- * families (e.g. op23 with plen < 4) read a few bytes past the declared payload
- * out of the decoder's zeroed work buffer; the zero tail reproduces that without
- * reading past the caller's allocation.
+ * first `len` bytes holding the frame and the remainder zero. The dispatcher
+ * reads some fixed positions before it checks that the frame is long enough to
+ * contain them: a frame shorter than the fields its opcode reads sees zeros
+ * from the zeroed tail of the buffer, for several opcodes including 0x02, 0x22,
+ * 0x23, 0x26 and 0x27 with len 3, and for opcode 0x23 with plen < 3 (it reads
+ * buf[3] to buf[5]). The zero tail reproduces the stock decoder's zeroed work
+ * buffer without reading past the caller's allocation.
  */
 #include "ctprotocol_decode.h"
 
@@ -26,7 +30,8 @@ static int32_t le32(const uint8_t *p) {
 }
 
 /* op02 "code" (buf[3]) acknowledgement-type membership. Outside this set op02
- * is unrecognized (Java false), mirroring the stock bitwise test at 0001a5c7. */
+ * is unrecognized (Java false), mirroring the stock membership test.
+ * Provenance: stock x86 library, offset 0x1a5c7. */
 static int op02_code_known(unsigned c) {
     return (c >= 1 && c <= 3) || (c >= 5 && c <= 8) ||
            (c >= 0x10 && c <= 0x16) || (c >= 0x20 && c <= 0x26) ||
@@ -35,9 +40,11 @@ static int op02_code_known(unsigned c) {
            (c == 0x9b) || (c == 0x98 || c == 0x99);
 }
 
-/* op19 per-record validator (stock FUN_000149f5 + inline range checks). Record
- * is b0=type|flag, b1=field|..., b2=..; reject the whole frame if any record
- * fails. 1 = valid, 0 = reject. */
+/* op19 per-record validator: the record type (b0 bits 0..6) selects the largest
+ * allowed field value (b1 bits 0..5). Record is b0=type|flag, b1=field|..,
+ * b2=..; the caller rejects the whole frame if any record fails. Types not
+ * listed below are invalid. 1 = valid, 0 = reject. Provenance: stock x86 library, validator at offset 0x149f5 plus
+ * inline range checks in the dispatcher. */
 static int op19_rec_valid(unsigned b0, unsigned b1) {
     unsigned type = b0 & 0x7f;
     unsigned field = b1 & 0x3f;
@@ -53,8 +60,8 @@ static int op19_rec_valid(unsigned b0, unsigned b1) {
 }
 
 int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
-    /* Entry gate (stock 0001a520): len >= 3, magic 0x5A, declared plen == len-3.
-     * Any failure returns Java true (ret != 0x0b) with no event. */
+    /* Entry gate: len >= 3, magic 0x5A, declared plen == len-3. Any failure
+     * returns Java true (ret != 0x0b) with no event. */
     if (len < 3 || frame[0] != 0x5a || frame[2] != (uint8_t)(len - 3))
         return CTP_DECODE_OK;
 
@@ -91,8 +98,12 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
         }
         if (len == 0xd) {
             if (code == 0x3a)
-                return CTP_DECODE_OK;  /* +0xe0 internal bridge: no Java callback */
-            if ((b[4] & 0x7f) < 2 && b[4] != 1) {  /* b[4] == 0 */
+                return CTP_DECODE_OK;  /* stock routes code 0x3a, len 13 to an internal
+                                        * listener, not to Java: no callback is raised */
+            /* Admits b[4] in {0x00, 0x80, 0x81}: the low 7 bits are < 2 and b[4]
+             * itself is not 1. Preserved from stock; 0x80 and 0x81 are passed
+             * through to the callback unchanged in v1. */
+            if ((b[4] & 0x7f) < 2 && b[4] != 1) {
                 ev.kind = CTP_EV_DATA_ACK;
                 ev.u.data_ack.code = (int32_t)code;
                 ev.u.data_ack.v1 = b[4];
@@ -166,6 +177,10 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
             if (b[4] == 1) {               /* mode: only 1 reaches the Java callback */
                 unsigned count = b[6];
                 if (plen == (int)count * 3 + 4) {
+                    /* Two passes, preserved from stock: every record is
+                     * validated first, and one invalid record suppresses the
+                     * events of every record in the frame, including records
+                     * that precede it. */
                     for (unsigned i = 0; i < count; i++) {
                         const uint8_t *r = b + 7 + i * 3;
                         if (!op19_rec_valid(r[0], r[1]))
@@ -191,6 +206,7 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
         } else {
             unsigned count = b[4];
             if (plen == ((int)count + 1) * 3) {
+                /* Same two-pass validation as the first-frame form above. */
                 for (unsigned i = 0; i < count; i++) {
                     const uint8_t *r = b + 6 + i * 3;
                     if (!op19_rec_valid(r[0], r[1]))
@@ -227,6 +243,8 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
         return CTP_DECODE_OK;
 
     case 0x22: {  /* audioLvlRange: count = buf[3], one event per 7-byte record */
+        /* Preserved from stock: buf[4] is not examined, whatever its value, and
+         * the three float arguments of every event are always 0.0f. */
         unsigned count = b[3];
         if (plen >= 2 && plen == (int)count * 7 + 2) {
             for (unsigned i = 0; i < count; i++) {
@@ -264,6 +282,11 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
                       (sub == 3) ? CTP_EV_HW_BTN_STATUS_SUPPORT :
                                    CTP_EV_HW_BTN_ENABLED;
             ev.u.hwbtn.value = le32(b + 4);
+            /* Bit mapping preserved from stock: the seven booleans are drawn
+             * from bytes 4 and 6 in a permuted order (see ctp_ev_hwbtn). The
+             * status-support callback (sub 3) inverts positions 0, 1, 4, 5 and
+             * 6 and leaves 2 and 3 as they are; this asymmetry is stock
+             * behavior, not a transcription error. */
             if (sub == 3) {  /* status-support inverts positions 0,1,4,5,6 */
                 ev.u.hwbtn.bit[0] = ((f4 >> 0) & 1) ^ 1;
                 ev.u.hwbtn.bit[1] = ((f4 >> 3) & 1) ^ 1;
@@ -326,8 +349,10 @@ int ctp_decode(const uint8_t *frame, int len, ctp_emit_fn emit, void *user) {
         }
         return CTP_DECODE_OK;
 
-    /* Recognized opcodes with no reachable Java callback (internal listener
-     * slots or record-store forms): accepted (ret != 0x0b), emit nothing. */
+    /* Recognized but silent, preserved from stock: these opcodes have no
+     * reachable Java callback (internal listener slots or record-store forms).
+     * They are accepted (ret != 0x0b, so Java sees `true`) and emit nothing.
+     * Removing one from this list would change the Java result to `false`. */
     case 0x01: case 0x05: case 0x10: case 0x11: case 0x13: case 0x14:
     case 0x15: case 0x16: case 0x1e: case 0x20: case 0x21: case 0x24:
     case 0x25: case 0x30: case 0x32: case 0x33: case 0x34: case 0x35:

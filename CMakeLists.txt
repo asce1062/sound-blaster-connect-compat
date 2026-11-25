@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
+# Top-level build for the Sound Blaster Connect compatibility APKs: decode the
+# stock APK, apply per-variant patch sets, rebuild, sign, and optionally deploy.
 project(
     sbconnect_bringup
     VERSION 1.0.0
@@ -8,34 +10,25 @@ project(
     LANGUAGES NONE)
 
 # ---------------------------------------------------------------------------
-# 3-state pipeline:
+# Build pipeline, in three stages:
 #
-#   1. configure  verify the input APK, fetch + verify apktool + signer,
-#                 decode => decompiled/ (pristine)
+#   1. configure  verify the input APK, fetch and verify apktool and the
+#                 signer, decode => decompiled/ (pristine)
 #   2. build      modernize/arm64: fresh copy of decompiled/, apply the
 #                 variant's patch set (overlay files + optional patch.cmake
 #                 edits), apktool b, then sign (uber-apk-signer debug key).
-#                 resign: NOT via apktool — copy the stock archive verbatim
-#                 (align once only if needed) and re-sign, then prove the
-#                 payload is SHA-256 identical to stock (see below).
+#                 resign: NOT via apktool; copy the stock archive verbatim
+#                 (align once only if needed) and re-sign, then verify that
+#                 the payload is SHA-256 identical to stock.
 #   3. deploy     adb install one signed variant, launch it, tail logcat
 #
 # decompiled/ is PRISTINE: patches never touch it. Every variant builds from
 # a fresh copy under build/<variant>/tree, so changing a patch rebuilds only
-# that variant, never a re-decode (the slow step, ~90 s on this APK).
+# that variant and never repeats the decode, which is the slowest step.
 #
-# A "variant" is one output APK = one patch set. The two deliverables are
-# MUTUALLY EXCLUSIVE outputs built side by side in a single configure:
-#
-#   resign     payload-preserving signing control. The stock archive is copied
-#              verbatim and re-signed with a debug key so it installs by adb;
-#              no resource, manifest, or dex bytes are re-encoded. Runs only on
-#              devices that still have 32-bit support.
-#   modernize  stock + targetSdk raised and the Android 12/13/14 behavior
-#              changes that follow (see patches/modernize/). Decode->rebuild
-#              via apktool; more smali surgery, more risk.
-#   arm64      modernize + arm64-v8a native libraries built from source, so the
-#              app runs on 64-bit-only devices (Pixel 7/8, Galaxy S24).
+# A "variant" is one output APK = one patch set. The variants are built side
+# by side in a single configure; each is an independent deliverable. Their
+# definitions are listed with the variant declarations below.
 # ---------------------------------------------------------------------------
 
 # --- inputs -----------------------------------------------------------------
@@ -213,7 +206,7 @@ file(MAKE_DIRECTORY "${tools_dir}")
 sbc_fetch("${apktool_url}" "${apktool_jar}" "${apktool_sha256}")
 sbc_fetch("${signer_url}" "${signer_jar}" "${uber_signer_sha256}")
 
-# --- state 1: decode => pristine decompiled/ --------------------------------
+# --- stage 1: decode => pristine decompiled/ --------------------------------
 
 add_custom_command(
     OUTPUT "${stamp_decompiled}"
@@ -237,18 +230,22 @@ file(
     LIST_DIRECTORIES FALSE
     "${decompiled_dir}/*")
 
-# --- state 2: variants ------------------------------------------------------
+# --- stage 2: variants ------------------------------------------------------
 
 include(cmake/sbc_patches.cmake)
 
-# resign    payload-preserving signing control. NOT routed through apktool:
-#           the stock archive is copied verbatim (aligned once only if needed)
-#           and re-signed, then proven SHA-256 payload-identical to stock. This
-#           isolates signing/distribution from every other change.
-# modernize targetSdk bump + Android 12/13/14 behavior fixes (decode->rebuild).
-# arm64     modernize + arm64-v8a native libraries built from
-#           patches/arm64/native/ with the pinned NDK (sbc_native.cmake).
-#           Skipped when that NDK is not available.
+# resign    payload-preserving signing control. The stock archive is copied
+#           verbatim and re-signed with a debug key so it installs by adb; no
+#           resource, manifest, or dex bytes are re-encoded. It is verified to
+#           be SHA-256 payload-identical to stock, which isolates signing and
+#           distribution from every other change. Runs only on devices that
+#           still have 32-bit support.
+# modernize stock + targetSdk raised and the Android 12/13/14 behavior changes
+#           that follow (see patches/modernize/). Decode->rebuild via apktool.
+# arm64     modernize + arm64-v8a native libraries built from source in
+#           patches/arm64/native/ with the pinned NDK (sbc_native.cmake), so
+#           the app runs on 64-bit-only devices. Skipped when that NDK is not
+#           available.
 sbc_add_resign_control(resign)
 sbc_add_variant(modernize PATCHES modernize)
 
@@ -265,7 +262,7 @@ endif()
 get_property(all_apks GLOBAL PROPERTY sbc_all_apks)
 add_custom_target(apks ALL DEPENDS ${all_apks})
 
-# --- state 3: deploy = adb install + launch + logcat ------------------------
+# --- stage 3: deploy = adb install + launch + logcat ------------------------
 
 set(deploy_watch_timeout
     "15"

@@ -1,11 +1,14 @@
-/*
- * JNI decode adapter for ctprotocol-core.
+/**
+ * @file ctprotocol_jni_decode.c
+ * @brief JNI decode adapter for ctprotocol-core.
  *
  * Exports the single inbound entry point decode([BI)Z and maps each typed event
  * ctprotocol-core emits onto the matching stock SbxSppCommandManager static
  * callback. No protocol logic lives here: ctp_decode does the parsing, this file
  * only marshals bytes in and typed events out. Bound statically by export name,
- * exactly like the stock library.
+ * exactly like the stock library. The outbound builders are exported from
+ * ctprotocol_jni.c, which is compiled into the same library. See
+ * docs/technical/JNI_INTERFACE.md.
  *
  * JNI_OnLoad caches the 28 inbound callback method IDs all-or-nothing, mirroring
  * the stock loader: if any GetStaticMethodID fails the library fails to load
@@ -17,10 +20,13 @@
 #include <string.h>
 #include "ctprotocol_decode.h"
 
+/* Expands to the JNI export name of a static native method of
+ * SbxSppCommandManager. */
 #define JNM(name) \
     Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_##name
 
-/* Cached class and the 28 inbound callback method IDs (JNI_OnLoad). */
+/* Cached class (a global reference) and the 28 inbound callback method IDs,
+ * all set by JNI_OnLoad. */
 static jclass    g_cls;
 static jmethodID m_requestControl;
 static jmethodID m_dataAck;
@@ -51,6 +57,18 @@ static jmethodID m_activeProfileRec;
 static jmethodID m_activeProfileMega;
 static jmethodID m_voicePromptCtrl;
 
+/**
+ * @brief Library load hook: resolves SbxSppCommandManager and caches the 28
+ *        inbound callback method IDs.
+ *
+ * The lookup is all-or-nothing. A failed GetEnv, FindClass, NewGlobalRef or any
+ * of the 28 GetStaticMethodID calls aborts the load. The cached method names
+ * and signatures are the stock Java callback signatures and must not change.
+ *
+ * @param vm        The Java VM.
+ * @param reserved  Unused.
+ * @return          JNI_VERSION_1_6 on success, or -1 when any lookup fails.
+ */
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     (void)reserved;
     JNIEnv *env;
@@ -65,6 +83,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     if (g_cls == NULL)
         return -1;
 
+/* GET(var, name, sig): looks up the static method `name` with signature `sig`
+ * on the cached class, stores its ID in `var`, and makes JNI_OnLoad return -1
+ * if the method is missing. */
 #define GET(var, name, sig)                                        \
     var = (*env)->GetStaticMethodID(env, g_cls, name, sig);        \
     if (var == NULL)                                               \
@@ -103,10 +124,13 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     return JNI_VERSION_1_6;
 }
 
-/* One emitted event -> one static callback, args in Java order. */
+/* One emitted event -> one static callback, args in Java order. `user` is the
+ * JNIEnv of the calling thread. A pending Java exception raised by a callback
+ * is not cleared here. */
 static void emit_cb(void *user, const ctp_event *ev) {
     JNIEnv *env = (JNIEnv *)user;
     const int Z = JNI_TRUE, z = JNI_FALSE;
+/* B(x): converts a 0/1 core value to the jboolean passed to a Z parameter. */
 #define B(x) ((x) ? Z : z)
 
     switch (ev->kind) {
@@ -240,11 +264,26 @@ static void emit_cb(void *user, const ctp_event *ev) {
 #undef B
 }
 
-/*
- * decode([BI)Z. Reads exactly `len` bytes from offset 0 of `frame` into a zeroed
- * work buffer, runs ctp_decode (which fires emit_cb per event), and hands Java
- * the stock predicate: true unless the frame was unrecognizable. Lengths are
- * clamped to the work buffer; real device frames are far smaller.
+/**
+ * @brief Java `static native boolean decode(byte[] frame, int len)`.
+ *
+ * Copies `len` bytes from offset 0 of `frame` into a zeroed work buffer of
+ * CTP_DECODE_MINBUF bytes, runs ctp_decode (which fires one stock callback per
+ * emitted event, in dispatch order, on the calling thread before this function
+ * returns) and returns the stock predicate.
+ *
+ * `len` is clamped to the range 0..CTP_DECODE_MINBUF and the copy is further
+ * limited to frame.length; bytes the copy does not cover stay zero. A null
+ * `frame` decodes as an all-zero buffer of the clamped length. Real device
+ * frames are far smaller than the clamp.
+ *
+ * @param env    JNI environment.
+ * @param cls    The SbxSppCommandManager class (unused).
+ * @param frame  The frame bytes, or null.
+ * @param len    Number of bytes of `frame` to decode.
+ * @return       JNI_TRUE unless ctp_decode returned CTP_DECODE_UNRECOGNIZED,
+ *               in which case JNI_FALSE. A frame that is rejected for any other
+ *               reason still returns JNI_TRUE with no callback raised.
  */
 JNIEXPORT jboolean JNICALL JNM(decode)(JNIEnv *env, jclass cls,
                                        jbyteArray frame, jint len) {

@@ -17,9 +17,14 @@ import java.util.List;
  *   mode enc:  one "ENC <name> <argspec> = <hex>" per encode vector
  *   mode dec:  one "DEC <frameHex> ->" plus "  CB <name> <args>" per callback,
  *              in dispatch order, for each frame read from the corpus file
+ *   mode seq:  blank-line-separated groups of frames, one decode() call per
+ *              line, with the callbacks attributed to the call that produced
+ *              them
  *
  * Running the same vectors against the stock lib and the reimplementation and
- * diffing the output is the byte-for-byte differential check (Phases E and D).
+ * diffing the output is the byte-for-byte differential check for both the
+ * encoder and the decoder. The output format is the contract stored in
+ * oracle/vectors/; changing any printed string invalidates those vectors.
  */
 public class SbxSppCommandManager {
 
@@ -107,9 +112,9 @@ public class SbxSppCommandManager {
         for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(','); sb.append(a[i]); }
         return sb.toString();
     }
-    // ---- D5 typed-fidelity helpers (decode callbacks only) ----
+    // ---- typed-fidelity helpers (decode callbacks only) ----
     // Distinguish null vs empty, report length, and expose raw float bits so
-    // signedness / width / NaN are unambiguous in the frozen capture.
+    // signedness / width / NaN are unambiguous in the recorded vectors.
     private static String flt(float v) {
         return v + "(bits=" + String.format("0x%08x", Float.floatToRawIntBits(v)) + ")";
     }
@@ -231,7 +236,7 @@ public class SbxSppCommandManager {
             smpRep("grp_n8_d43", 0x97, 2, 0.0f, 8, 43);// gs=7: full(7)+rem(1)
             smpRep("grp_n1_d259", 0x97, 2, 0.0f, 1, 259); // gs clamps to 42
 
-            // Group-ID membership boundary (validator param_1):
+            // Group-ID membership boundary (the validator's group argument):
             smp("gid_0x48", new int[]{0x48}, new int[]{1}, new float[]{0.0f}, 0); // reject 0x18
             smp("gid_0x49", new int[]{0x49}, new int[]{1}, new float[]{10.0f}, 0);// accept [1,20]
             smp("gid_0x49_sub0", new int[]{0x49}, new int[]{0}, new float[]{10.0f}, 0); // 0x19

@@ -1,4 +1,4 @@
-# apply_patch.cmake — apply a variant's patch set onto a staged tree.
+# apply_patch.cmake: apply a variant's patch set onto a staged tree.
 #
 # Run per variant build by sbc_add_variant, after the pristine decompiled/
 # tree has been copied to ${TREE}:

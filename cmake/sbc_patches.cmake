@@ -1,4 +1,4 @@
-# sbc_patches.cmake — variant framework.
+# sbc_patches.cmake: variant framework.
 #
 # A variant is one output APK built from one patch set. sbc_add_variant
 # stages a FRESH copy of the pristine decompiled/ tree, applies the named
@@ -93,12 +93,12 @@ function(sbc_add_variant name)
         PARENT_SCOPE)
 endfunction()
 
-# sbc_add_resign_control(<name>) — the payload-preserving signing control.
+# sbc_add_resign_control(<name>): the payload-preserving signing control.
 #
 # Unlike sbc_add_variant, this does NOT go through apktool: it isolates
 # signing/distribution from every other change. It copies the stock APK
 # verbatim (aligning once only if the stock is not already aligned), re-signs
-# with the debug key via resign_control.cmake, then PROVES with
+# with the debug key via resign_control.cmake, then verifies with
 # resign_verify.cmake that every non-signature entry's uncompressed bytes are
 # SHA-256 identical to stock. The build FAILS if any payload byte differs.
 #

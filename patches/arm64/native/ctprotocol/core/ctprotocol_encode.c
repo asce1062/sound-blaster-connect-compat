@@ -1,11 +1,20 @@
 /*
  * ctprotocol-core: portable SPP command encoder (implementation).
  *
- * Reproduces the stock Encode:: builders from the x86 decompilation, confirmed
- * byte-for-byte against oracle/vectors/enc_stock.txt. No JNI, no platform
- * headers: the same translation unit compiles for x86 (oracle differential)
- * and arm64-v8a (device). Scalars are written little-endian by hand so the
- * output does not depend on host endianness.
+ * Reproduces the stock Encode:: builders. The output matches the stock library
+ * byte for byte for the vectors in oracle/vectors/enc_stock.txt. No JNI, no
+ * platform headers: the same translation unit compiles for x86 (oracle
+ * differential) and arm64-v8a (device). Scalars are written little-endian by
+ * hand so the output does not depend on host endianness.
+ *
+ * The public contract (arguments, return values, buffer capacity) is documented
+ * in ctprotocol_encode.h. Comments in this file record why the code reproduces
+ * stock behavior that can look like a defect; those behaviors are part of the
+ * contract and must not be "corrected".
+ *
+ * Trailing comments of the form "stock error code 0xNN" give the error code the
+ * stock builder returns for that rejection. They are diagnostics only: every
+ * builder here returns CTP_REJECT (-1), never the stock code.
  */
 #include "ctprotocol_encode.h"
 #include <string.h>
@@ -20,7 +29,10 @@ static float fb(uint32_t bits) {
 
 /* ---- constant-frame getters ---- */
 
-#define CONST_FRAME(fn, ...)                                                   \
+/* Defines `int fn(uint8_t *out)` that copies the given bytes to `out` and
+ * returns their count. Frame bytes are documented per function in
+ * ctprotocol_encode.h. */
+#define CONST_FRAME(fn, ...)                                                 \
     int fn(uint8_t *out) {                                                     \
         static const uint8_t b[] = {__VA_ARGS__};                             \
         memcpy(out, b, sizeof b);                                              \
@@ -54,28 +66,28 @@ CONST_FRAME(ctp_getActiveProfileMega, 0x5a, 0x1a, 0x03, 0x01, 0x02, 0x00)
 static int is_byte(int v) { return (unsigned)v <= 0xff; }
 
 int ctp_getFwInfo(uint8_t *out, int n) {
-    if (!is_byte(n)) return CTP_REJECT; /* 0x1e */
+    if (!is_byte(n)) return CTP_REJECT; /* stock error code 0x1e */
     out[0] = 0x5a; out[1] = 0x07; out[2] = 0x02; out[3] = 0x01;
     out[4] = (uint8_t)n;
     return 5;
 }
 
 int ctp_getAudioLvl(uint8_t *out, int n) {
-    if (!is_byte(n)) return CTP_REJECT; /* 0x1e */
+    if (!is_byte(n)) return CTP_REJECT; /* stock error code 0x1e */
     out[0] = 0x5a; out[1] = 0x23; out[2] = 0x04; out[3] = 0x01;
     out[4] = (uint8_t)n; out[5] = 0x00; out[6] = 0x00;
     return 7;
 }
 
 int ctp_setBtAutoConnect(uint8_t *out, int v) {
-    if ((unsigned)v > 1) return CTP_REJECT; /* 0x69 */
+    if ((unsigned)v > 1) return CTP_REJECT; /* stock error code 0x69 */
     out[0] = 0x5a; out[1] = 0x31; out[2] = 0x02; out[3] = 0x00;
     out[4] = (uint8_t)v;
     return 5;
 }
 
 int ctp_setVoicePromptCtrl(uint8_t *out, int v) {
-    if ((unsigned)v > 2) return CTP_REJECT; /* 0xa3 */
+    if ((unsigned)v > 2) return CTP_REJECT; /* stock error code 0xa3 */
     out[0] = 0x5a; out[1] = 0x99; out[2] = 0x02; out[3] = 0x00;
     out[4] = (uint8_t)v;
     return 5;
@@ -94,7 +106,7 @@ int ctp_setTime(uint8_t *out, int32_t t) {
 /* ---- profile setters: 5a 1a 03 <mode> <sel> <value> ---- */
 
 static int profile_set(uint8_t *out, int mode, int sel, int n) {
-    if (!is_byte(n)) return CTP_REJECT; /* 0x1e */
+    if (!is_byte(n)) return CTP_REJECT; /* stock error code 0x1e */
     out[0] = 0x5a; out[1] = 0x1a; out[2] = 0x03;
     out[3] = (uint8_t)mode; out[4] = (uint8_t)sel; out[5] = (uint8_t)n;
     return 6;
@@ -108,15 +120,15 @@ int ctp_setActiveProfileMegaVoicePreview(uint8_t *out, int n) { return profile_s
 /* ---- two-argument builders ---- */
 
 int ctp_setHwBtn(uint8_t *out, int id, int val) {
-    if ((unsigned)(id - 1) >= 20) return CTP_REJECT; /* 0x5b: id in 1..20 */
-    if ((unsigned)val >= 2) return CTP_REJECT;       /* 0x5c: val in {0,1} */
+    if ((unsigned)(id - 1) >= 20) return CTP_REJECT; /* stock error code 0x5b: id in 1..20 */
+    if ((unsigned)val >= 2) return CTP_REJECT;       /* stock error code 0x5c: val in {0,1} */
     out[0] = 0x5a; out[1] = 0x26; out[2] = 0x03; out[3] = 0x00;
     out[4] = (uint8_t)id; out[5] = (uint8_t)val;
     return 6;
 }
 
 int ctp_setFileSize(uint8_t *out, int a, int b) {
-    if (a != 1) return CTP_REJECT; /* 0x9a: command type must be 1 (sendFile) */
+    if (a != 1) return CTP_REJECT; /* stock error code 0x9a: command type must be 1 (sendFile) */
     uint32_t u = (uint32_t)b;
     out[0] = 0x5a; out[1] = 0x98; out[2] = 0x05; out[3] = 0x01;
     out[4] = (uint8_t)(u & 0xff);
@@ -131,9 +143,16 @@ int ctp_setFileSize(uint8_t *out, int a, int b) {
 int ctp_getFileDataBlk(uint8_t *out, const uint8_t *data, int datalen,
                        int len, int flag) {
     int off = flag ? 0x81 : 0x80;
-    if (data == NULL) return CTP_REJECT;              /* 0x9b */
-    if (len < 1 || len > 253) return CTP_REJECT;      /* 0x9c */
-    if (off != 0x80 && off != 0x81 && off != 0x82) return CTP_REJECT; /* 0x9d */
+    if (data == NULL) return CTP_REJECT;              /* stock error code 0x9b */
+    if (len < 1 || len > 253) return CTP_REJECT;      /* stock error code 0x9c */
+    /* Preserved from stock: `off` is only ever 0x80 or 0x81 here, so this
+     * check can never reject. The stock library carries the same check with
+     * the same unreachable 0x82 case; it is kept so the control flow matches. */
+    if (off != 0x80 && off != 0x81 && off != 0x82) return CTP_REJECT; /* stock error code 0x9d */
+    /* NOT part of the stock builders: a safety addition of this implementation.
+     * A `len` larger than the readable source is rejected here instead of
+     * reading past the end of `data`. The JNI adapter bounds `datalen` by the
+     * Java array length. */
     if (len > datalen) return CTP_REJECT;             /* source underrun guard */
     out[0] = 0x5a; out[1] = 0x98;
     out[2] = (uint8_t)(len + 2);
@@ -145,9 +164,25 @@ int ctp_getFileDataBlk(uint8_t *out, const uint8_t *data, int datalen,
 
 /* ---- complex builder: setMalcolmParam ---- */
 
-/* FUN_000159e0: per-param domain check. 0 = accept; non-zero rejects the call.
- * group ids 0x49/0x8f/0x95/0x96/0x97; everything else -> 0x18. Within a group,
- * a sub-index outside the defined cases -> 0x19; an out-of-range float -> 0x2f.
+/* Per-parameter domain check behind ctp_malcolm_validate.
+ * Provenance: stock x86 library, offset 0x159e0.
+ * 0 = accept; non-zero rejects the whole call. Known group ids are
+ * 0x49/0x8f/0x95/0x96/0x97; any other group returns 0x18. Within a known
+ * group, a sub-index outside the defined cases returns 0x19; an out-of-range
+ * float returns 0x2f.
+ *
+ * Preserved from stock, and part of the contract:
+ *  - NaN: the closed-range rules (rng() and the explicit `f < lo` / `f > hi`
+ *    pairs) reject only values that compare below the lower bound or above the
+ *    upper bound, and every comparison with NaN is false, so NaN is accepted by
+ *    every range rule. The 0/1 and set-membership rules (is01() and the
+ *    `f == 1.0f || f == 0.0f ...` forms) accept only values that compare equal
+ *    to a listed value, so NaN is rejected by all of them.
+ *  - "Accept any float": some sub-indexes (group 0x95 subs 0x2f..0x35, group
+ *    0x96 subs 0x1e and 0x39..0x3d, group 0x97 subs 2, 3, 5, 6, 7, 8) return 0
+ *    without looking at the value, so NaN and infinities pass.
+ *  - Float bounds written as fb(bits) are the stock single-precision constants
+ *    (the decimal in the trailing comment is the approximate value).
  */
 static int is01(float f) { return (f == 1.0f || f == 0.0f) ? 0 : 0x2f; }
 static int rng(float f, float lo, float hi) { return (f < lo || f > hi) ? 0x2f : 0; }
@@ -258,7 +293,10 @@ int ctp_malcolm_validate(int group, int sub, float f) {
     }
 }
 
-/* Group size (params/group) and full-group byte size for the seed d. */
+/* Group size (params/group) and full-group byte size for the seed d. A group
+ * of N parameters is 4 + 6*N bytes. d < 16 selects 2 parameters per group
+ * (16 bytes); otherwise N = (d - 1) / 6, capped at 42 (256 bytes). N is always
+ * at least 2, so callers can divide by it. */
 static void malcolm_group(int d, int *gs, int *gb) {
     if (d < 16) { *gs = 2; *gb = 16; return; }
     int g = (d - 1) / 6;
@@ -297,14 +335,18 @@ static int malcolm_group_frame(uint8_t *out, int cnt, const int32_t *a,
 
 int ctp_setMalcolmParam(uint8_t *out, const int32_t *a, const int32_t *b,
                         const float *c, int n, int d, int *e0, int *e1) {
-    if (n < 0) return CTP_REJECT; /* 0x1b */
+    if (n < 0) return CTP_REJECT; /* stock error code 0x1b */
     int gs, gb;
     malcolm_group(d, &gs, &gb);
     int full = n / gs;
     int rem = n % gs;
 
     /* Any invalid param aborts the whole call (stock returns non-zero, wrapper
-     * emits an empty byte[]); validate before emitting. */
+     * emits an empty byte[]); validate before emitting, so a rejected call
+     * writes nothing to `out`. Group id and sub-index are validated as full
+     * ints here; malcolm_group_frame later truncates them to 8 bits when
+     * writing. That order is preserved from stock: 0x195 is rejected, not
+     * aliased to 0x95. */
     for (int i = 0; i < n; i++)
         if (ctp_malcolm_validate(a[i], b[i], c[i]) != 0) return CTP_REJECT;
 
@@ -317,6 +359,11 @@ int ctp_setMalcolmParam(uint8_t *out, const int32_t *a, const int32_t *b,
         pos += malcolm_group_frame(out + pos, rem, a + idx, b + idx, c + idx);
         idx += rem;
     }
+    /* Out-array values, preserved from stock: e0 is the byte length of the
+     * last group frame (the remainder group when there is one, else a full
+     * group), e1 is the number of group frames. With n == 0 no frame is
+     * emitted and the call succeeds with length 0, e0 = the full-group length
+     * and e1 = 0; stock treats that as a valid empty frame, not an error. */
     if (e0) *e0 = rem ? (rem * 6 + 4) : gb;
     if (e1) *e1 = full + (rem ? 1 : 0);
     return pos;
