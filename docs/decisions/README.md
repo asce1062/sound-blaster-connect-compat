@@ -13,9 +13,10 @@ new record that supersedes the old one, not by editing it.
 | [0005](0005-source-and-binary-distribution.md) | Offer both source builds and signed binaries as first-class outputs | Accepted, not yet implemented |
 | [0006](0006-resign-bypasses-apktool.md) | Build the `resign` control without apktool | Accepted |
 | [0007](0007-component-export-hardening.md) | Narrow manifest component exports; keep stock exposure for runtime receivers | Accepted |
+| [0008](0008-separate-distribution-identity.md) | Distribute under a separate application ID; keep stock-identity controls | Accepted |
+| [0009](0009-version-scheme.md) | Derive all version metadata from the CMake project version | Accepted |
 
-Application identity and release signing will be recorded once they are
-established.
+Release signing will be recorded once it is established.
 
 Template: Context, Decision, Consequences, Status. Keep records short and
 link to the technical reference or research record that holds the detail.

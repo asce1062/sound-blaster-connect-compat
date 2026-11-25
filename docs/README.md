@@ -18,6 +18,7 @@
 | [NATIVE_LIBRARIES.md](technical/NATIVE_LIBRARIES.md) | The two native libraries, ABIs, build reproducibility, test coverage |
 | [ANDROID_COMPATIBILITY.md](technical/ANDROID_COMPATIBILITY.md) | What each variant changes, per Android platform rule |
 | [PERMISSIONS.md](technical/PERMISSIONS.md) | Permissions, component exports, runtime receivers, signing identity |
+| [APPLICATION_IDENTITY.md](technical/APPLICATION_IDENTITY.md) | The `compat` application ID, label and version scheme, and the package-dependence audit |
 
 ## Which document to update
 

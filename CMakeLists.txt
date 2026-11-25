@@ -4,7 +4,9 @@ cmake_minimum_required(VERSION 3.22)
 # stock APK, apply per-variant patch sets, rebuild, sign, and optionally deploy.
 project(
     sbconnect_compat
-    VERSION 1.0.0
+    # The project version. Release tag, Android versionName/versionCode and
+    # artifact names derive from it in cmake/sbc_version.cmake.
+    VERSION 0.1.0
     DESCRIPTION "SB Connect Compat: compatibility builds of Sound Blaster Connect for current Android"
     HOMEPAGE_URL "https://github.com/asce1062/sound-blaster-connect-compat"
     LANGUAGES NONE)
@@ -75,7 +77,7 @@ set(adb_serial
     CACHE STRING "adb device serial for deploy (empty = default device)")
 set(sbc_package
     "com.creative.apps.sbconnect"
-    CACHE STRING "android package name (deploy)")
+    CACHE STRING "stock application ID (resign, modernize and arm64 variants)")
 set(deploy_variant
     "resign"
     CACHE STRING "variant installed by the deploy target")
@@ -234,6 +236,7 @@ file(
 # --- stage 2: variants ------------------------------------------------------
 
 include(cmake/sbc_patches.cmake)
+include(cmake/sbc_version.cmake)
 
 # resign    payload-preserving signing control. The stock archive is copied
 #           verbatim and re-signed with a debug key so it installs by adb; no
@@ -247,6 +250,10 @@ include(cmake/sbc_patches.cmake)
 #           patches/arm64/native/ with the pinned NDK (sbc_native.cmake), so
 #           the app runs on 64-bit-only devices. Skipped when that NDK is not
 #           available.
+# compat    arm64 + the project's own application ID, label and version
+#           (patches/identity/, values from sbc_version.cmake). The
+#           distributable build; it installs next to the stock app. The
+#           variants above keep the stock identity as controls.
 sbc_add_resign_control(resign)
 sbc_add_variant(modernize PATCHES modernize)
 
@@ -258,6 +265,18 @@ if(sbc_native_available)
         PATCHES modernize arm64
         NATIVE_LIB_DIR "${native_arm64_dir}"
         NATIVE_LIBS ${native_arm64_libs})
+    sbc_add_variant(
+        compat
+        PATCHES modernize arm64 identity
+        NATIVE_LIB_DIR "${native_arm64_dir}"
+        NATIVE_LIBS ${native_arm64_libs}
+        PACKAGE "${sbc_app_id}"
+        DEFINES "SBC_APP_ID=${sbc_app_id}"
+                "SBC_APP_LABEL=${sbc_app_label}"
+                "SBC_VERSION_NAME=${sbc_version_name}"
+                "SBC_VERSION_CODE=${sbc_version_code}"
+                "SBC_UPSTREAM_VERSION=${sbc_upstream_version}"
+                "SBC_UPSTREAM_VERSION_CODE=${sbc_upstream_version_code}")
 endif()
 
 get_property(all_apks GLOBAL PROPERTY sbc_all_apks)
@@ -285,7 +304,7 @@ add_custom_target(
     deploy
     DEPENDS "${sbc_variant_${deploy_variant}_apk}"
     COMMAND
-        "${CMAKE_COMMAND}" "-DPKG=${sbc_package}"
+        "${CMAKE_COMMAND}" "-DPKG=${sbc_variant_${deploy_variant}_package}"
         "-DAPK=${sbc_variant_${deploy_variant}_apk}"
         "-DDEBUG=$<BOOL:${deploy_debug}>" "-DTIMEOUT=${deploy_watch_timeout}"
         "-DADB_SERIAL=${adb_serial}" "-DADB_BIN=${adb_bin}" -P

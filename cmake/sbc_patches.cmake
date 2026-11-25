@@ -7,9 +7,13 @@
 #
 #   sbc_add_variant(<name> PATCHES a b c)   # empty PATCHES = pure repackage
 #   sbc_add_variant(<name> PATCHES ... NATIVE_LIB_DIR <dir> NATIVE_LIBS <files>)
+#   sbc_add_variant(<name> PATCHES ... PACKAGE <app id> DEFINES K=V ...)
 #
 # NATIVE_LIB_DIR is passed to every patch.cmake as ${SBC_NATIVE_LIB_DIR};
 # NATIVE_LIBS are the built libraries in it, added as build dependencies.
+# DEFINES are passed to every patch.cmake as variables. PACKAGE is the
+# application ID the variant's patches produce (default ${sbc_package}, the
+# stock ID); the deploy target installs and launches that package.
 #
 # A patch is a patches/<name>/ directory with either or both of:
 #   overlay/      a file tree copied verbatim onto the staged tree (its paths
@@ -25,7 +29,14 @@
 include_guard(GLOBAL)
 
 function(sbc_add_variant name)
-    cmake_parse_arguments(V "" "NATIVE_LIB_DIR" "PATCHES;NATIVE_LIBS" ${ARGN})
+    cmake_parse_arguments(V "" "NATIVE_LIB_DIR;PACKAGE" "PATCHES;NATIVE_LIBS;DEFINES" ${ARGN})
+    if(NOT V_PACKAGE)
+        set(V_PACKAGE "${sbc_package}")
+    endif()
+    set(define_args)
+    foreach(d IN LISTS V_DEFINES)
+        list(APPEND define_args "-D${d}")
+    endforeach()
 
     set(payload_deps)
     set(patch_csv "")
@@ -62,7 +73,7 @@ function(sbc_add_variant name)
             "${CMAKE_COMMAND}" "-DTREE=${tree}"
             "-DPATCHES_ROOT=${PROJECT_SOURCE_DIR}/patches"
             "-DPATCHES=${patch_csv}" "-DSBC_NATIVE_LIB_DIR=${V_NATIVE_LIB_DIR}"
-            -P "${apply_script}"
+            ${define_args} -P "${apply_script}"
         COMMAND
             "${CMAKE_COMMAND}" -E echo
             "+ ${java_bin} -jar ${apktool_jar} b ${tree} -o ${unsigned} -f --jobs ${apktool_jobs}"
@@ -90,6 +101,9 @@ function(sbc_add_variant name)
     set_property(GLOBAL APPEND PROPERTY sbc_all_apks "${signed}")
     set(sbc_variant_${name}_apk
         "${signed}"
+        PARENT_SCOPE)
+    set(sbc_variant_${name}_package
+        "${V_PACKAGE}"
         PARENT_SCOPE)
 endfunction()
 
@@ -135,5 +149,8 @@ function(sbc_add_resign_control name)
     set_property(GLOBAL APPEND PROPERTY sbc_all_apks "${signed}")
     set(sbc_variant_${name}_apk
         "${signed}"
+        PARENT_SCOPE)
+    set(sbc_variant_${name}_package
+        "${sbc_package}"
         PARENT_SCOPE)
 endfunction()

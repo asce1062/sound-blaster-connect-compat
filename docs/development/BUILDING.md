@@ -12,7 +12,7 @@ install one on a device. Tool versions and where they come from are in
 | Java 17 or later on `PATH` (or `-Djava_bin=`) | apktool 3.x and uber-apk-signer |
 | CMake 3.22 or later and Ninja | the pipeline; the Android SDK's `cmake/3.22.1` ships both |
 | `zipalign` from Android build-tools on `PATH` (or `-Dzipalign_bin=`) | the `resign` alignment check |
-| Android NDK `25.1.8937393`, exactly | the `arm64` variant only |
+| Android NDK `25.1.8937393`, exactly | the `arm64` and `compat` variants only |
 | `adb` on `PATH` (or `-Dadb_bin=`) | the `deploy` target only |
 | Network access on the first configure | downloading apktool 3.0.3 and uber-apk-signer 1.3.0 |
 
@@ -35,7 +35,7 @@ It does not accept `;`-separated package names, installs nothing and still
 exits 0. Check that `ndk/25.1.8937393/source.properties` exists after
 installing. Without the NDK,
 configure prints a warning, `resign` and `modernize` still build, and the
-`arm64` variant is not defined.
+`arm64` and `compat` variants are not defined.
 
 ## Input: the stock APK
 
@@ -62,6 +62,7 @@ cmake --build --preset apks            # every variant
 cmake --build --preset resign          # one variant
 cmake --build --preset modernize
 cmake --build build --target apk-arm64 # needs the NDK; there is no preset for it
+cmake --build build --target apk-compat # needs the NDK; the distributable build
 ```
 
 If CMake or Ninja is not on `PATH`, call the SDK copies directly and name
@@ -79,10 +80,17 @@ Outputs, in `build/`:
 | `sbc_resign-aligned-debugSigned.apk` | `resign`: the stock archive re-signed, payload verified identical |
 | `sbc_modernize-aligned-debugSigned.apk` | `modernize`: targetSdk 34 and the platform fixes |
 | `sbc_arm64-aligned-debugSigned.apk` | `arm64`: `modernize` plus arm64-v8a libraries built from source |
+| `sbc_compat-aligned-debugSigned.apk` | `compat`: `arm64` with the application ID `io.github.asce1062.sbconnect.compat`, label SB Connect Compat and the project version |
+| `release.env` | the version metadata of [`cmake/sbc_version.cmake`](../../cmake/sbc_version.cmake) as `KEY=VALUE` lines |
 
 Each signed APK has a matching `.idsig` file (APK Signature Scheme v4) next to
 it. All variants are signed with a debug key by uber-apk-signer. Release
 signing is not part of the build.
+
+The project version is set once, in `project(VERSION)` of the root
+`CMakeLists.txt`. The `compat` versionName and versionCode, the release tag
+and the release file name are derived from it; the scheme is in
+[APPLICATION_IDENTITY.md](../technical/APPLICATION_IDENTITY.md#versions).
 
 `decompiled/` in the source tree holds the pristine apktool decode. Variants
 never modify it; each build stages a fresh copy under `build/<variant>/tree/`.
@@ -93,7 +101,7 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 | Target | Builds |
 |---|---|
 | `decode` | `decompiled/` |
-| `apk-resign`, `apk-modernize`, `apk-arm64` | one variant |
+| `apk-resign`, `apk-modernize`, `apk-arm64`, `apk-compat` | one variant |
 | `native-arm64-v8a` | the two native libraries, into `build/native/arm64-v8a/lib/` |
 | `apks` (default) | every defined variant |
 | `deploy` | installs and launches one variant, see below |
@@ -113,7 +121,7 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 | `deploy_debug` | `ON` | `ON` tails logcat until interrupted; `OFF` watches for `deploy_watch_timeout` seconds and fails on a crash |
 | `deploy_watch_timeout` | `15` | watch window in seconds |
 | `adb_serial` | empty | device serial for `deploy` |
-| `sbc_package` | `com.creative.apps.sbconnect` | package launched by `deploy` |
+| `sbc_package` | `com.creative.apps.sbconnect` | stock application ID of the `resign`, `modernize` and `arm64` variants. `deploy` launches the package of the chosen variant, so `compat` launches `io.github.asce1062.sbconnect.compat` |
 
 ## Install on a device
 
@@ -121,18 +129,19 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 shows logcat. The variant is a configure-time choice:
 
 ```sh
-cmake -S . -B build -Ddeploy_variant=arm64
+cmake -S . -B build -Ddeploy_variant=compat
 cmake --build build --target deploy
 ```
 
-The debug signature differs from Creative's. Android refuses to install it
-over the stock app, and a debug-signed build from another machine may also
-carry a different key. When `install -r` fails, `deploy` uninstalls the
+`compat` is its own package and installs next to the stock app. The other
+variants share the stock package name. Their debug signature differs from
+Creative's, so Android refuses to install them over the stock app. A
+debug-signed build from another machine may also carry a different key. When `install -r` fails, `deploy` uninstalls the
 package and installs again; **the uninstall deletes the app's data on the
 device**. To keep control of that step, install by hand instead:
 
 ```sh
-adb install -r build/sbc_arm64-aligned-debugSigned.apk
+adb install -r build/sbc_compat-aligned-debugSigned.apk
 ```
 
 Which variant suits which device, and what to expect at first launch, is in

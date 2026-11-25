@@ -22,13 +22,18 @@ See [NOTICE.md](NOTICE.md).
 
 ## Variants
 
-One build produces three independent APKs:
+One build produces four independent APKs:
 
 | Variant | What it changes | For |
 |---|---|---|
 | `resign` | Nothing: the stock archive re-signed, payload verified identical | phones that still run 32-bit apps |
 | `modernize` | targetSdk 34 and the Android 12 to 14 fixes | phones that still run 32-bit apps |
 | `arm64` | `modernize` plus arm64-v8a native libraries built from source | 64-bit-only phones, and the others |
+| `compat` | `arm64` under its own application ID, `io.github.asce1062.sbconnect.compat`, labelled SB Connect Compat | the distributable build; installs next to the stock app |
+
+The first three keep the stock package name and serve as controls. `compat`
+is the build meant for distribution
+([APPLICATION_IDENTITY.md](docs/technical/APPLICATION_IDENTITY.md)).
 
 The `arm64` build has been tested on a Pixel 7a (Android 13) and a Galaxy S24
 Ultra (Android 16) with a Sound BlasterX Katana. Other combinations are
@@ -43,11 +48,12 @@ Requires Java 17+, CMake 3.22+, Ninja, Android build-tools and, for the
 ```sh
 cmake --preset default
 cmake --build --preset apks
-adb install -r build/sbc_arm64-aligned-debugSigned.apk
+adb install -r build/sbc_compat-aligned-debugSigned.apk
 ```
 
-Uninstall the stock app first: the builds are signed with a different key.
-Details in [BUILDING.md](docs/development/BUILDING.md).
+`compat` installs alongside the stock app. The stock-identity variants are
+signed with a different key than Creative's, so the stock app must be
+uninstalled before installing one of them. Details in [BUILDING.md](docs/development/BUILDING.md).
 
 ## Documentation
 

@@ -1,6 +1,6 @@
 # Android compatibility
 
-This document describes, per build variant, what the pipeline changes in the stock Sound Blaster Connect 1.04.02 APK (package `com.creative.apps.sbconnect`, versionCode 10402, minSdk 14, targetSdk 26, 32-bit native libraries only) and what it leaves byte-identical. The `resign` variant re-signs the stock archive without re-encoding it. The `modernize` variant raises targetSdk to 34 through an apktool decode, manifest and smali patches, and three smali shim classes. The `arm64` variant is `modernize` plus `arm64-v8a` native libraries built from source. Each claim carries a verification basis tag, and the sections at the end list known stock-app defects, limits, and statements in older records that this document supersedes. Permission and component-export detail is in [PERMISSIONS.md](PERMISSIONS.md).
+This document describes, per build variant, what the pipeline changes in the stock Sound Blaster Connect 1.04.02 APK (package `com.creative.apps.sbconnect`, versionCode 10402, minSdk 14, targetSdk 26, 32-bit native libraries only) and what it leaves byte-identical. The `resign` variant re-signs the stock archive without re-encoding it. The `modernize` variant raises targetSdk to 34 through an apktool decode, manifest and smali patches, and three smali shim classes. The `arm64` variant is `modernize` plus `arm64-v8a` native libraries built from source. The `compat` variant is `arm64` with its own application ID, label and version. Each claim carries a verification basis tag, and the sections at the end list known stock-app defects, limits, and statements in older records that this document supersedes. Permission and component-export detail is in [PERMISSIONS.md](PERMISSIONS.md).
 
 ## Verification basis
 
@@ -24,6 +24,9 @@ Hardware coverage is two devices: a Pixel 7a (Android 13, API 33, 64-bit only) a
 | Native libraries | Stock 32-bit set, byte-identical (**Build**) | Stock 32-bit set, identical per recorded comparison (**Static**) | Stock set plus `lib/arm64-v8a/` with two libraries |
 | Signature | Android debug key, v1+v2+v3 | Same | Same |
 | Runs on | 32-bit-capable devices only (**Expected**) | 32-bit-capable devices only (**Expected**) | 64-bit-only devices (**Device**); 32-bit devices **Expected** |
+
+The `compat` variant is `arm64` under its own application ID and version; it
+is described [below](#compat-distribution-identity).
 
 Pinned tools (**Build**, SHA-256 verified at configure): apktool 3.0.3, uber-apk-signer 1.3.0. The stock APK must match the pinned SHA-256 `fe1ffe0c...f99be` or configure fails. Outputs are not bit-for-bit reproducible across machines: signatures depend on the signing key, and aapt2 resource compilation is not byte-stable (**Static**, recorded in [PIPELINE.md](../research/android/PIPELINE.md)).
 
@@ -99,6 +102,18 @@ Side effect (**Static**): at six sites the flags register is also the request-co
 | Negative control | `resign` APK on the Pixel 7a: `INSTALL_FAILED_NO_MATCHING_ABIS` | **Device** |
 | Install on 32-bit devices | The 32-bit libraries are still present | **Expected** |
 | Native behavior parity | JNI parity was established differentially against an x86 oracle build of the same source; command/response correctness against hardware is not claimed | **Static**, scope limit |
+
+## `compat`: distribution identity
+
+| Item | Detail | Basis |
+|---|---|---|
+| Variant definition | `sbc_add_variant(compat PATCHES modernize arm64 identity ... PACKAGE <app id> DEFINES ...)`; every `modernize` and `arm64` row applies | **Build** |
+| Identity | Package `io.github.asce1062.sbconnect.compat`, label `SB Connect Compat`, versionName `1.04.02-compat.0.1.0`, versionCode 1000, provider authority under the new package | **Build** (anchor counts), **Static** (aapt2 badging) |
+| Difference from `arm64` | 6 of 4312 archive entries: `AndroidManifest.xml`, `resources.arsc`, `classes.dex` and the three signature files. Staged tree: manifest, `apktool.yml`, two lines of `SbxDeviceManager.smali` | **Static** |
+| Coexistence | A separate package with its own data directory and a unique provider authority, so it installs next to the stock app or a stock-identity variant | **Expected** until the device run in [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md#verification) |
+
+Package-dependence audit and version scheme:
+[APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md).
 
 ## Known stock-app defects on modern devices
 

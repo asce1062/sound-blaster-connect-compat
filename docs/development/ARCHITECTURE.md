@@ -15,10 +15,12 @@ cmake/
   resign_control.cmake re-signs the stock archive without re-encoding it
   resign_verify.cmake  proves the re-signed payload is identical to stock
   sbc_native.cmake     locates the pinned NDK and builds the native libraries
+  sbc_version.cmake    project version, distribution identity, release.env
   deploy_apk.cmake     adb install, launch and logcat watch
 patches/
   modernize/           targetSdk 34 and the Android 12 to 14 fixes (patch.cmake, overlay/)
   arm64/               adds arm64-v8a libraries (patch.cmake) and their source (native/)
+  identity/            application ID, label and version of the compat variant
 oracle/                Java mirror harness that runs a CtProtocol library on an x86 emulator
   vectors/             frozen encoder and decoder vectors (the behavioral contract)
 tests/ctprotocol/      host regression: replays the vectors against the portable core
@@ -38,11 +40,15 @@ inputs/                your stock APK (ignored by git)
      stock archive, aligns it only if needed, re-signs it, then extracts both
      archives and fails the build unless every non-signature entry is
      identical. It isolates the effect of signing from every other change.
-   - `modernize` and `arm64` (`sbc_add_variant`) copy `decompiled/` to
-     `build/<variant>/tree/`, apply their patches in order, rebuild with
+   - `modernize`, `arm64` and `compat` (`sbc_add_variant`) copy `decompiled/`
+     to `build/<variant>/tree/`, apply their patches in order, rebuild with
      `apktool b` and sign with uber-apk-signer.
-4. **Deploy.** Optional: installs one variant with adb, launches it and
-   watches logcat.
+   - `compat` is `arm64` plus the `identity` patch. It is the only variant
+     with its own application ID; the others keep the stock package as
+     controls. Its values come from `sbc_version.cmake` through the variant's
+     `DEFINES`, and the variant records its package for `deploy`.
+4. **Deploy.** Optional: installs one variant with adb, launches its package
+   and watches logcat.
 
 ## Patches
 
@@ -54,8 +60,8 @@ A patch is a directory `patches/<name>/` with either or both of:
   edits that are not whole-file replacements.
 
 Patches apply in the order a variant lists them, so `arm64` builds on
-`modernize`. Every edit in `modernize/patch.cmake` asserts how many times its
-anchor occurs. A stock tree that differs from 1.04.02 fails the build instead
+`modernize` and `identity` on both. Every edit in `modernize/patch.cmake` and
+`identity/patch.cmake` asserts how many times its anchor occurs. A stock tree that differs from 1.04.02 fails the build instead
 of producing a partly patched APK.
 
 ## Native libraries
