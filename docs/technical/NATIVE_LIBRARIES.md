@@ -77,7 +77,7 @@ These are the files the device runs used. The current from-source build does not
 
 ### Verification baseline
 
-- The oracle differential ran the stock x86 library and the x86 build of this source through the harness: byte-identical on all six vector sets. No arm64 run of the oracle vectors exists, because the harness needs a 32-bit x86 runtime.
+- The oracle differential ran the stock x86 library and the x86 build of this source through the harness: byte-identical on all six frozen vector sets and on the supplementary set `dec_reject_gaps`. No arm64 run of the oracle vectors exists, because the harness needs a 32-bit x86 runtime.
 - arm64 correctness rests on identical source, the 64-bit host tests and the device runs.
 
 ## How the libraries reach the APK
@@ -140,7 +140,7 @@ Rows are components, columns are evidence sources. "Yes" means a recorded run co
 | `setMalcolmParam` validation | Yes for the listed accept and reject points (43 `ENC` rows); the rest of the domain table is static only | Same rows | Not shown |
 | Decoder status and events (`ctprotocol_decode.c`) | Yes: `dec_valid` (27 frames), `dec_reject` (11 groups), `dec_state` (7 controls), `dec_stream` (8 scenarios), `dec_entry` (4 probes) | Yes: cases `dec_entry`, `dec_valid`, `dec_reject`, `dec_state`, `dec_stream` | Live inbound frames decoded; one `[handleProtocolEvent] SOUNDCORE_COMMAND_MAXPAYLOAD` event logged |
 | Decoder field maps at non-zero values | Mostly no: the vectors use zero payloads; the exceptions are listed in [CTPROTOCOL.md](CTPROTOCOL.md#what-the-decode-vectors-pin) | No | Not shown |
-| Rejects of op `0x02` with an unknown code or length, and of op `0x07` with an unknown length | No vector reaches them | No | Not shown |
+| Rejects of op `0x02` with an unknown code or length, and of op `0x07` with an unknown length | Yes: supplementary `dec_reject_gaps` (11 groups), byte-identical | Yes: case `dec_reject_gaps` | Not shown |
 | Three unreachable callbacks | Never produced (consistent with the static finding) | Not produced | Not produced |
 | JNI marshalling and callback delivery (`ctprotocol_jni*.c`) | Yes (x86 glue); the harness prints each callback | No: `ctp_regress.c` re-implements the marshalling | Native binding and callback cache resolved on both devices; no payload comparison |
 | `JNI_OnLoad` callback cache | Yes (x86) | No | Yes: loads on both devices |
@@ -149,7 +149,7 @@ Rows are components, columns are evidence sources. "Yes" means a recorded run co
 | arm64 install and launch | n/a | n/a | Yes: Pixel 7a, Galaxy S24 Ultra; RFCOMM connection to the Katana; dashboard and preset screens reached |
 | Hardware protocol correctness | n/a | n/a | Not claimed |
 
-The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_state` and `dec_stream`. `compare.cmake` ignores lines that begin with `#`, so comment-line differences between a run and the recorded file do not fail a case. The suite passes with MSVC and with gcc.
+The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_state`, `dec_stream` and the supplementary `dec_reject_gaps`. `compare.cmake` ignores lines that begin with `#`, so comment-line differences between a run and the recorded file do not fail a case. The suite passes with MSVC and with gcc.
 
 ## Verification gaps
 

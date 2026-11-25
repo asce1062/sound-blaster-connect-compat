@@ -124,11 +124,13 @@ host compiler.
   frames) used to locate discriminants and field order. The sweep frames and
   their outputs are not in the repository. Claims that rest only on them are
   unrecorded; the frozen corpora are the recorded contract.
-- **Corpus coverage gaps.** No vector reaches three reject branches of the
-  decoder
+- **Corpus coverage gaps.** No frozen vector reaches three reject branches of
+  the decoder
   ([`ctprotocol_decode.c`](../../patches/arm64/native/ctprotocol/core/ctprotocol_decode.c)):
   op02 with an unknown code, op02 with an unknown length, op07 with an unknown
-  length. A mutation of any of them passes every vector set.
+  length. The supplementary set `dec_reject_gaps.txt`, captured from the stock
+  x86 library after these records were written, covers them
+  ([TESTING.md](../development/TESTING.md#supplementary-vector-set)).
 - **No arm64 oracle run.** The harness runs on a 32-bit x86 runtime. The arm64
   libraries are built from the same source that passes the x86 differential and
   the 64-bit host tests; on arm64 they are checked only by the device runs.
@@ -153,7 +155,7 @@ Corrections to the records, by record. The record text is unchanged.
 | `oracle/vectors/dec_reject.txt`, `dec_state.txt` | Header comments. | The comment lines were added after the matching `.out.txt` captures, so the harness's echoed comments differ from the recorded output. Comment lines carry no protocol behavior; comparisons ignore lines starting with `#`. |
 | Commit hashes in [CHECKPOINT.md](arm64/CHECKPOINT.md):40 and [ARM64_BUILD.md](arm64/ARM64_BUILD.md):12 | Commit citations. | These cite the rewritten history. The history was rewritten before publication ([PROVENANCE.md](../PROVENANCE.md)); the original hashes are kept privately. |
 | Decoder and encoder records | Decompiler function names and offsets (`FUN_...`, raw addresses). | Provenance of the static map in the stock x86 library. They identify locations in that binary only; behavior is described in [`docs/technical/CTPROTOCOL.md`](../technical/CTPROTOCOL.md). |
-| [DECODE_ENTRY.md](decoder/DECODE_ENTRY.md), [DECODE_REJECTION_MATRIX.md](decoder/DECODE_REJECTION_MATRIX.md), [PHASE2_VERDICT.md](decoder/PHASE2_VERDICT.md):24 | `decode` returns false only for an unknown opcode. | That is the only case the vectors record. The decoder also reports an unrecognized frame for op02 with an unknown code or length and op07 with an unknown length, from the static map; no vector covers those cases. |
+| [DECODE_ENTRY.md](decoder/DECODE_ENTRY.md), [DECODE_REJECTION_MATRIX.md](decoder/DECODE_REJECTION_MATRIX.md), [PHASE2_VERDICT.md](decoder/PHASE2_VERDICT.md):24 | `decode` returns false only for an unknown opcode. | That is the only case the vectors record. The decoder also reports an unrecognized frame for op02 with an unknown code or length and op07 with an unknown length, from the static map; the supplementary set `oracle/vectors/dec_reject_gaps.txt` records them from the stock library. |
 | [DECODE_IMPLEMENTATION.md](decoder/DECODE_IMPLEMENTATION.md) | The data acknowledgement requires `b[4] == 0`. | The decoder accepts `b[4]` in {0, 0x80, 0x81}. |
 | `oracle/vectors/dec_valid.txt` comments | `hwBtn` signature `(i,byte[])`. | The callback signature is `(IZZZZZZZ)V`, as in the harness and [JNI_INTERFACE.md](../technical/JNI_INTERFACE.md). |
 | [FREEZE.md](arm64/FREEZE.md), [CHECKPOINT.md](arm64/CHECKPOINT.md) | A count of 35 native methods over a name list that omits `getHwBtn`. | The Java class declares 35 native methods, `getHwBtn` and `decode` included. |

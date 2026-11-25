@@ -1,0 +1,84 @@
+# Supplementary rejection set for the three decoder reject branches that the
+# frozen sets do not reach: op02 with an unknown code, op02 with a known code
+# and an unknown length, op07 with an unknown length. seq mode: each group =
+# [mutant frame, known-good control]. Control = 5a03020000 (maxPls 0).
+# Additive: the frozen sets are unchanged; expected output is the stock x86
+# library's output for these frames (dec_reject_gaps.out.txt).
+# G1-1 op02 unknown code 0x04 (between known 0x03 and 0x05), len 5
+=== group 1
+CALL 1.1 5a02020400 (len=5) -> ret=0
+    (no callback)
+CALL 1.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 1
+# G1-2 op02 unknown code 0x00, len 5
+=== group 2
+CALL 2.1 5a02020000 (len=5) -> ret=0
+    (no callback)
+CALL 2.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 2
+# G1-3 op02 unknown code 0xff, len 5
+=== group 3
+CALL 3.1 5a0202ff00 (len=5) -> ret=0
+    (no callback)
+CALL 3.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 3
+# G1-4 op02 unknown code 0x04 at len 7 (a known op02 length)
+=== group 4
+CALL 4.1 5a020404000000 (len=7) -> ret=0
+    (no callback)
+CALL 4.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 4
+# G2-1 op02 known code 0x01, len 4
+=== group 5
+CALL 5.1 5a020101 (len=4) -> ret=0
+    (no callback)
+CALL 5.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 5
+# G2-2 op02 known code 0x01, len 8
+=== group 6
+CALL 6.1 5a02050100000000 (len=8) -> ret=0
+    (no callback)
+CALL 6.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 6
+# G2-3 op02 known code 0x01, len 6 with b[4] = 0 (the len-6 form requires 1)
+=== group 7
+CALL 7.1 5a0203010000 (len=6) -> ret=0
+    (no callback)
+CALL 7.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 7
+# G3-1 op07 len 3 (no payload)
+=== group 8
+CALL 8.1 5a0700 (len=3) -> ret=0
+    (no callback)
+CALL 8.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 8
+# G3-2 op07 len 5
+=== group 9
+CALL 9.1 5a07020000 (len=5) -> ret=0
+    (no callback)
+CALL 9.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 9
+# G3-3 op07 len 8
+=== group 10
+CALL 10.1 5a07050000000000 (len=8) -> ret=0
+    (no callback)
+CALL 10.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 10
+# G3-4 op07 len 20 (one past the 19-byte form)
+=== group 11
+CALL 11.1 5a07110000000000000000000000000000000000 (len=20) -> ret=0
+    (no callback)
+CALL 11.2 5a03020000 (len=5) -> ret=1
+    CB maxPlsCallback 0
+--- end group 11
+DONE

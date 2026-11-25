@@ -1,0 +1,50 @@
+# Supplementary rejection set for the three decoder reject branches that the
+# frozen sets do not reach: op02 with an unknown code, op02 with a known code
+# and an unknown length, op07 with an unknown length. seq mode: each group =
+# [mutant frame, known-good control]. Control = 5a03020000 (maxPls 0).
+# Additive: the frozen sets are unchanged; expected output is the stock x86
+# library's output for these frames (dec_reject_gaps.out.txt).
+
+# G1-1 op02 unknown code 0x04 (between known 0x03 and 0x05), len 5
+5a02020400
+5a03020000
+
+# G1-2 op02 unknown code 0x00, len 5
+5a02020000
+5a03020000
+
+# G1-3 op02 unknown code 0xff, len 5
+5a0202ff00
+5a03020000
+
+# G1-4 op02 unknown code 0x04 at len 7 (a known op02 length)
+5a020404000000
+5a03020000
+
+# G2-1 op02 known code 0x01, len 4
+5a020101
+5a03020000
+
+# G2-2 op02 known code 0x01, len 8
+5a02050100000000
+5a03020000
+
+# G2-3 op02 known code 0x01, len 6 with b[4] = 0 (the len-6 form requires 1)
+5a0203010000
+5a03020000
+
+# G3-1 op07 len 3 (no payload)
+5a0700
+5a03020000
+
+# G3-2 op07 len 5
+5a07020000
+5a03020000
+
+# G3-3 op07 len 8
+5a07050000000000
+5a03020000
+
+# G3-4 op07 len 20 (one past the 19-byte form)
+5a07110000000000000000000000000000000000
+5a03020000

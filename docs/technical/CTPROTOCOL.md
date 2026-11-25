@@ -162,9 +162,9 @@ The JNI wrapper returns `status != 0x0b`. **Static** (JNI source), **Oracle** (`
 
 `CTP_DECODE_UNRECOGNIZED` is returned in exactly these cases, all after the framing check passed:
 
-1. The opcode (`frame[1]`) is not one of the opcodes in the dispatch table or the silent list below. **Oracle** (`dec_reject.txt` group 7 and `dec_state.txt`: `5a7f020000` returns `ret=0`; this is the only `ret=0` in the recorded corpus).
-2. Opcode `0x02` with an acknowledgement code (`frame[3]`) outside the known set, or with a known code and a length that matches none of the `0x02` forms. **Static (unrecorded)**.
-3. Opcode `0x07` with a length other than 7, 9, 19 or 67. **Static (unrecorded)**.
+1. The opcode (`frame[1]`) is not one of the opcodes in the dispatch table or the silent list below. **Oracle** (`dec_reject.txt` group 7 and `dec_state.txt`: `5a7f020000` returns `ret=0`; this is the only `ret=0` in the frozen corpus).
+2. Opcode `0x02` with an acknowledgement code (`frame[3]`) outside the known set, or with a known code and a length that matches none of the `0x02` forms. **Static**, **Oracle** (supplementary `dec_reject_gaps.txt` groups G1 and G2: every mutant returns `ret=0`).
+3. Opcode `0x07` with a length other than 7, 9, 19 or 67. **Static**, **Oracle** (`dec_reject_gaps.txt` group G3 at lengths 3, 5, 8 and 20).
 
 Every other outcome returns `CTP_DECODE_OK`, including a framing failure, a recognized opcode whose sub-command or length is wrong, and a silent opcode. **Acceptance is signalled by event emission, never by the status.** **Oracle** (`dec_reject.txt`: every rejected frame returns `ret=1` except `5a7f020000`).
 
@@ -285,7 +285,7 @@ Each item below looks like a defect and is kept because the stock library behave
 
 ## Verification gaps
 
-- No vector reaches the `0x02` unknown-length reject branch (`len` not 5, 6 with `b4 == 1`, 7 or 13) in `ctprotocol_decode.c`. No vector reaches the unknown-code reject of `0x02` or the unknown-length reject of `0x07` either. Only the unknown-opcode reject (`5a7f020000`) is recorded.
+- The frozen sets record only the unknown-opcode reject (`5a7f020000`). The `0x02` unknown-code reject, the `0x02` unknown-length reject (`len` not 5, 6 with `b4 == 1`, 7 or 13) and the `0x07` unknown-length reject are recorded by the supplementary set `dec_reject_gaps.txt`, captured from the stock x86 library ([TESTING.md](../development/TESTING.md#supplementary-vector-set)).
 - No vector exercises the silent opcode list, the `0x02` high-bit `b4` values, `len` 19 of `0x07`, or the pending-ack upper clamp.
 - No vector covers `setMalcolmParam` for NaN, for the (group, sub) pairs not listed under **Oracle**, for `n` of 42 or more, or for `d` between 17 and 258 other than the listed values. The same holds for `getFileDataBlk` with a source array shorter than `len`.
 - No encode or decode vector has been run on arm64 or against a physical device. The Device evidence is limited to load, bind, connect and live operation ([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md)); a swallowed `ArrayIndexOutOfBoundsException` in the stock Java `CtProtocolMgr` occurs on certain live frames and is outside the native code ([ARM64_VERDICT.md](../research/arm64/ARM64_VERDICT.md)).
@@ -306,6 +306,6 @@ Each item below looks like a defect and is kept because the stock library behave
 
 - [`patches/arm64/native/ctprotocol/core/ctprotocol_encode.h`](../../patches/arm64/native/ctprotocol/core/ctprotocol_encode.h) and [`.c`](../../patches/arm64/native/ctprotocol/core/ctprotocol_encode.c)
 - [`patches/arm64/native/ctprotocol/core/ctprotocol_decode.h`](../../patches/arm64/native/ctprotocol/core/ctprotocol_decode.h) and [`.c`](../../patches/arm64/native/ctprotocol/core/ctprotocol_decode.c)
-- [`oracle/vectors/`](../../oracle/vectors/): `enc_stock.txt`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_state`, `dec_stream` (`.txt` and `.out.txt`); [`oracle/README.md`](../../oracle/README.md)
+- [`oracle/vectors/`](../../oracle/vectors/): `enc_stock.txt`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_state`, `dec_stream` (`.txt` and `.out.txt`), and the supplementary `dec_reject_gaps`; [`oracle/README.md`](../../oracle/README.md)
 - [`tests/ctprotocol/`](../../tests/ctprotocol/): `ctp_regress.c`, `CMakeLists.txt`, `compare.cmake`
 - Research records: [ENCODE_SPEC.md](../research/encoder/ENCODE_SPEC.md), [ENCODE_VECTORS.md](../research/encoder/ENCODE_VECTORS.md), [ENCODE_DIFFERENTIAL.md](../research/encoder/ENCODE_DIFFERENTIAL.md), [DECODE_IMPLEMENTATION.md](../research/decoder/DECODE_IMPLEMENTATION.md), [DECODE_CALLBACK_MATRIX.md](../research/decoder/DECODE_CALLBACK_MATRIX.md), [DECODE_ENTRY.md](../research/decoder/DECODE_ENTRY.md), [DECODE_STREAM_BEHAVIOR.md](../research/decoder/DECODE_STREAM_BEHAVIOR.md), [DECODE_REJECTION_MATRIX.md](../research/decoder/DECODE_REJECTION_MATRIX.md), [DECODE_DIFFERENTIAL.md](../research/decoder/DECODE_DIFFERENTIAL.md), [FREEZE.md](../research/arm64/FREEZE.md), [RE.md](../research/arm64/RE.md), [ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md), [ARM64_VERDICT.md](../research/arm64/ARM64_VERDICT.md)

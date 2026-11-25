@@ -1,7 +1,8 @@
 # Host regression tests for the portable CtProtocol core.
 #
 # Builds ctprotocol-core and tests/ctprotocol/ctp_regress.c with the host C
-# compiler and replays every frozen vector set in oracle/vectors/ through it.
+# compiler and replays every vector set in oracle/vectors/ through it: the
+# frozen sets and the supplementary set dec_reject_gaps.
 # No Android SDK, NDK, emulator or stock APK is needed.
 #
 #   cmake -S tests/ctprotocol -B build/host-tests
@@ -35,7 +36,9 @@ set(cases
     "dec_valid|dec|dec_valid.txt|dec_valid.out.txt"
     "dec_reject|seq|dec_reject.txt|dec_reject.out.txt"
     "dec_state|seq|dec_state.txt|dec_state.out.txt"
-    "dec_stream|seq|dec_stream.txt|dec_stream.out.txt")
+    "dec_stream|seq|dec_stream.txt|dec_stream.out.txt"
+    # supplementary, not frozen: decoder reject branches the sets above miss
+    "dec_reject_gaps|seq|dec_reject_gaps.txt|dec_reject_gaps.out.txt")
 foreach(c IN LISTS cases)
     string(REPLACE "|" ";" f "${c}")
     list(GET f 0 name)

@@ -79,6 +79,11 @@ pairs; each `.out.txt` is the frozen capture its `.txt` reproduces line for line
   known-good control (`seq` mode).
 - `dec_state.txt` - statefulness controls (`seq` mode).
 
+`dec_reject_gaps.txt` is a supplementary set, not part of the frozen capture:
+the three decoder reject branches the five pairs above do not reach (`seq`
+mode, expected output captured from the same stock library). It is described
+in [`docs/development/TESTING.md`](../docs/development/TESTING.md#supplementary-vector-set).
+
 In `seq` mode the harness echoes corpus comment lines. `dec_reject.txt` and
 `dec_state.txt` gained header comments after their outputs were captured, so
 compare outputs on lines that do not start with `#`.
