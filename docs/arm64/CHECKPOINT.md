@@ -35,7 +35,7 @@ is diffed against output captured on the same AVD.
   `oracle/src/com/creative/logic/sbxapplogic/vendor/sbx/SbxSppCommandManager.java`
   (exact FQN so the lib's static `Java_...` exports bind and `JNI_OnLoad`
   resolves the callbacks), runner `oracle/run.sh`, docs `oracle/README.md`.
-- Commit: `13e2084` (`test(oracle): add the 32-bit differential harness and
+- Commit: `b6e92b9` (`test(oracle): add the 32-bit differential harness and
   capture encode vectors`).
 - Mechanism: compile mirror -> `d8` dex -> push dex + chosen `.so` to the AVD ->
   run under `app_process32`, printing deterministic `ENC`/`INT`/`DEC` lines.

@@ -7,7 +7,7 @@ serial-port shim for `arm64-v8a` and records the native-surface metadata.
 
 The JNI boundary was already exercised end-to-end during Phase 4 against the
 x86 oracle: the same C core compiled as `libsbxapplogic_ctprotocol_jni` for
-x86 passed the behavioral differential (commit `94bbb4a`, grade
+x86 passed the behavioral differential (commit `579bc3b`, grade
 DIFFERENTIAL-PASS). arm64 reuses that identical source and JNI adapter with no
 second JNI layer; only the target ABI changes. There is one JNI
 implementation, proven once.
