@@ -43,7 +43,7 @@ The stock APK also carries a non-ABI `lib/utility` entry, which no variant chang
 | Language | C11 |
 | Symbol visibility | hidden by default; JNI entry points are marked `JNIEXPORT` |
 | Path remapping | `-ffile-prefix-map=<source dir>=.` and `-ffile-prefix-map=<binary dir>=build` |
-| Link flags | `-Wl,--build-id=sha1 -s` (stripped, content-hash build id) |
+| Link flags | `-Wl,--build-id=sha1 -s` (stripped, content-hash build id); on 64-bit ABIs also `-Wl,-z,max-page-size=16384` ([16 KiB page size](#16-kib-page-size)) |
 | Root file | [`CMakeLists.txt`](../../CMakeLists.txt): `sbc_add_native_abi(arm64-v8a)` |
 | Library definitions | [`patches/arm64/native/CMakeLists.txt`](../../patches/arm64/native/CMakeLists.txt), [`ctprotocol/CMakeLists.txt`](../../patches/arm64/native/ctprotocol/CMakeLists.txt) |
 
@@ -64,7 +64,14 @@ If no match is found, `sbc_native_available` is false and the `arm64` variant is
 
 ### Reproducibility
 
-The pinned NDK, the fixed flags, the path remapping and the content-hash build id remove the inputs that otherwise make builds differ by checkout location or machine. Source and binary paths do not enter the binary. The sources contain no timestamps. Two builds of the same source with the same NDK are expected to match; the build id (a SHA-1 of the content) changes only when the content changes. **Static**. Two fresh clones in different directories built with the pinned NDK produce identical files: `libsbxapplogic_ctprotocol_jni.so` SHA-256 `66797a4e729afb4f99c93c904fa49c9e27bd595a2f728e67fb814791b1902d18`, `libserialport_jni.so` SHA-256 `2db91e4a0854f96f545a8deaad9dbc7a0f9ea6eefb412bfa7a9d8002b6088b3f` (**Build**, fresh-clone build in [PROVENANCE.md](../PROVENANCE.md)). A build with a different NDK revision is not expected to match.
+The pinned NDK, the fixed flags, the path remapping and the content-hash build id remove the inputs that otherwise make builds differ by checkout location or machine. Source and binary paths do not enter the binary. The sources contain no timestamps. Two builds of the same source with the same NDK are expected to match; the build id (a SHA-1 of the content) changes only when the content changes. **Static**. A clone in a separate directory built with the pinned NDK produces the same files as the pipeline build (**Build**):
+
+| Library | Bytes | SHA-256 |
+|---|---|---|
+| `libsbxapplogic_ctprotocol_jni.so` | 27736 | `970d1744d765e80a3e4b82854add4dd1d96402f0841b0a78070f9d80432d7836` |
+| `libserialport_jni.so` | 6696 | `ca380c7c549c197777d8b76a1c763806030992da4fe0af74e6cf47f8d9eff232` |
+
+A build with a different NDK revision is not expected to match. Before the 16 KiB link flag, the same source built to `66797a4e...` and `2db91e4a...`, the hashes of the fresh-clone check in [PROVENANCE.md](../PROVENANCE.md); the two builds differ only as described under [16 KiB page size](#16-kib-page-size).
 
 Hardware-validated builds, recorded as historical values ([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md), [ARM64_BUILD.md](../research/arm64/ARM64_BUILD.md)):
 
@@ -73,7 +80,42 @@ Hardware-validated builds, recorded as historical values ([ARM64_RUNTIME.md](../
 | `libsbxapplogic_ctprotocol_jni.so` | 136928 | `ef9bad520bd1c94d9a942857425b80722d650190dd120dad8d9d070490e52c6e` | `libm`, `libdl`, `libc` |
 | `libserialport_jni.so` | 30512 | `e50efa5e59d111a695b6eb7d1457824df03921f53eb6e4eda04fc524f4d58a87` | `liblog`, `libm`, `libdl`, `libc` |
 
-These are the files the device runs used. The current from-source build does not have these hashes, and no recorded comparison relates it to them section by section. Do not use the table as a build-verification target. The ELF segment alignment (16 KiB page-size readiness) was not assessed.
+These are the files the device runs used. The current from-source build does not have these hashes, and no recorded comparison relates it to them section by section. Do not use the table as a build-verification target.
+
+### 16 KiB page size
+
+64-bit Android devices may run with 16 KiB memory pages. On such a device the
+dynamic linker of Android 15 and later refuses a library with a `PT_LOAD`
+segment aligned to less than the page size (**Expected**, platform rule).
+NDK r25b links with a 4 KiB maximum page size by default; NDK r27 and later
+default to 16 KiB for 64-bit ABIs.
+
+| Item | Before | Now | Basis |
+|---|---|---|---|
+| arm64-v8a `PT_LOAD` alignment, both libraries | `0x1000` | `0x4000` | **Build** (`llvm-readelf -l`) |
+| Stock `armeabi`, `armeabi-v7a`, `x86` libraries | `0x1000` | unchanged | **Static**; 32-bit ABIs are outside the 16 KiB requirement |
+| x86 oracle build of this source | default | unchanged, byte-identical to the build the oracle differential ran | **Build** |
+| `.so` entries in the APK | deflated | deflated; `zipalign -c -P 16 4` passes | **Build** |
+| `extractNativeLibs` | not set (installer extracts the libraries) | unchanged | **Static** |
+| Page-size assumptions in the native source | none: no `getpagesize`, `sysconf` or `mmap` | unchanged | **Static** |
+
+Because the libraries are compressed and extracted at install, only the ELF
+segment alignment matters, not the alignment of the entries in the archive.
+
+The flag is applied in
+[`patches/arm64/native/CMakeLists.txt`](../../patches/arm64/native/CMakeLists.txt)
+to 64-bit ABIs only. The NDK pin and the source are unchanged. Against the
+4 KiB build, the flag moves the writable segments up by `0x3000` and `0x6000`
+and changes nothing else in the code: every differing instruction word in
+`.text` and `.plt` is an `adrp` whose target page moves by exactly that shift,
+with the same destination register (37 in the ctprotocol library, 13 in
+serialport). `.rodata`, `.dynsym`, `.dynstr`, `.eh_frame` and the data
+contents are identical; `.rela.dyn`, `.rela.plt`, `.dynamic` and the build id
+change with the addresses. File sizes are unchanged. **Build**
+
+No 16 KiB device or emulator has run these libraries. Loading on a 4 KiB
+device is **Expected** (a 16 KiB-aligned library is valid on 4 KiB pages) until
+the next device run.
 
 ### Verification baseline
 
@@ -156,6 +198,7 @@ The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_st
 - No arm64 run of the oracle vectors exists. arm64 behavior is inferred from identical source, 64-bit host tests and device runs.
 - The `.so` files are not checked into the repository, and no recorded rebuild compares the current build output with the hardware-validated hashes.
 - `libserialport_jni.so` has no test of any kind.
+- No device with 16 KiB pages has run the arm64 libraries; their 16 KiB readiness rests on the ELF alignment alone.
 - The device runs bound every native method and showed live traffic, but they do not compare encoder or decoder output against a reference. The stock Java `CtProtocolMgr` swallows an `ArrayIndexOutOfBoundsException` on some live frames; that is outside the native libraries ([ARM64_VERDICT.md](../research/arm64/ARM64_VERDICT.md)).
 - The decoder probe sweeps described in [DECODE_DIFFERENTIAL.md](../research/decoder/DECODE_DIFFERENTIAL.md) are not stored, so claims that rest only on them are **Static (unrecorded)**.
 
