@@ -9,12 +9,18 @@
 # Every other entry must be present in both and SHA-256 identical. The v2/v3
 # APK Signing Block is not a ZIP entry, so it never appears here. FATAL on any
 # mismatch, missing entry, or unexpected extra non-signature entry.
+#
+# Release signing reuses it with STOCK set to the unsigned build and
+# -DREF_NAME=unsigned, which only changes the wording of the report.
 
 foreach(v STOCK CAND WORK)
     if(NOT DEFINED ${v})
         message(FATAL_ERROR "resign_verify: ${v} not set")
     endif()
 endforeach()
+if(NOT DEFINED REF_NAME)
+    set(REF_NAME "stock")
+endif()
 
 set(sig_re "^META-INF/(MANIFEST\\.MF|[^/]+\\.(SF|RSA|DSA|EC))$")
 
@@ -71,7 +77,7 @@ foreach(rel IN LISTS stock_files)
     file(SHA256 "${stock_x}/${rel}" a)
     file(SHA256 "${cand_x}/${rel}" b)
     if(NOT a STREQUAL b)
-        string(APPEND failures "  SHA-256 MISMATCH: ${rel}\n    stock ${a}\n    cand  ${b}\n")
+        string(APPEND failures "  SHA-256 MISMATCH: ${rel}\n    ${REF_NAME} ${a}\n    cand  ${b}\n")
     endif()
 endforeach()
 
@@ -91,4 +97,4 @@ if(NOT failures STREQUAL "")
     message(FATAL_ERROR "resign_verify: PAYLOAD-PRESERVING FAIL\n${failures}")
 endif()
 
-message(STATUS "resign_verify: PAYLOAD-PRESERVING PASS (${n_payload} entries SHA-256 identical to stock)")
+message(STATUS "resign_verify: PAYLOAD-PRESERVING PASS (${n_payload} entries SHA-256 identical to ${REF_NAME})")

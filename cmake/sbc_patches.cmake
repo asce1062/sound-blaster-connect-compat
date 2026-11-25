@@ -4,6 +4,8 @@
 # stages a FRESH copy of the pristine decompiled/ tree, applies the named
 # patches onto that copy, then rebuilds (apktool b) and signs
 # (uber-apk-signer debug key) into build/sbc_<name>-aligned-debugSigned.apk.
+# The unsigned build/sbc_<name>.apk is its own build step (target
+# apk-<name>-unsigned), the input of release signing.
 #
 #   sbc_add_variant(<name> PATCHES a b c)   # empty PATCHES = pure repackage
 #   sbc_add_variant(<name> PATCHES ... NATIVE_LIB_DIR <dir> NATIVE_LIBS <files>)
@@ -63,9 +65,12 @@ function(sbc_add_variant name)
     set(unsigned "${CMAKE_BINARY_DIR}/sbc_${name}.apk")
     set(signed "${CMAKE_BINARY_DIR}/sbc_${name}-aligned-debugSigned.apk")
 
+    # Two steps: the unsigned APK (stage, patch, apktool b), then the debug
+    # signature. Release signing (sbc_signing.cmake) starts from the unsigned
+    # APK and never from the debug-signed one.
     add_custom_command(
-        OUTPUT "${signed}"
-        COMMAND "${CMAKE_COMMAND}" -E rm -f "${unsigned}" "${signed}"
+        OUTPUT "${unsigned}"
+        COMMAND "${CMAKE_COMMAND}" -E rm -f "${unsigned}"
         COMMAND "${CMAKE_COMMAND}" -E rm -rf "${tree}"
         COMMAND "${CMAKE_COMMAND}" -E copy_directory "${decompiled_dir}"
                 "${tree}"
@@ -79,22 +84,28 @@ function(sbc_add_variant name)
             "+ ${java_bin} -jar ${apktool_jar} b ${tree} -o ${unsigned} -f --jobs ${apktool_jobs}"
         COMMAND "${java_bin}" -jar "${apktool_jar}" b "${tree}" -o "${unsigned}"
                 -f --jobs "${apktool_jobs}"
-        COMMAND
-            "${CMAKE_COMMAND}" -E echo
-            "+ ${java_bin} -jar ${signer_jar} -a ${unsigned} --out ${CMAKE_BINARY_DIR} --allowResign"
-        COMMAND "${java_bin}" -jar "${signer_jar}" -a "${unsigned}" --out
-                "${CMAKE_BINARY_DIR}" --allowResign
         DEPENDS "${stamp_decompiled}"
                 ${decompiled_files}
                 ${payload_deps}
                 ${V_NATIVE_LIBS}
                 "${apply_script}"
                 "${apktool_jar}"
-                "${signer_jar}"
-        COMMENT
-            "variant[${name}]: stage + patch [${patch_csv}] + apktool b + sign"
+        COMMENT "variant[${name}]: stage + patch [${patch_csv}] + apktool b"
         USES_TERMINAL VERBATIM)
 
+    add_custom_command(
+        OUTPUT "${signed}"
+        COMMAND "${CMAKE_COMMAND}" -E rm -f "${signed}"
+        COMMAND
+            "${CMAKE_COMMAND}" -E echo
+            "+ ${java_bin} -jar ${signer_jar} -a ${unsigned} --out ${CMAKE_BINARY_DIR} --allowResign"
+        COMMAND "${java_bin}" -jar "${signer_jar}" -a "${unsigned}" --out
+                "${CMAKE_BINARY_DIR}" --allowResign
+        DEPENDS "${unsigned}" "${signer_jar}"
+        COMMENT "variant[${name}]: debug sign"
+        USES_TERMINAL VERBATIM)
+
+    add_custom_target(apk-${name}-unsigned DEPENDS "${unsigned}")
     add_custom_target(apk-${name} DEPENDS "${signed}")
 
     set_property(GLOBAL APPEND PROPERTY sbc_variants "${name}")
@@ -104,6 +115,9 @@ function(sbc_add_variant name)
         PARENT_SCOPE)
     set(sbc_variant_${name}_package
         "${V_PACKAGE}"
+        PARENT_SCOPE)
+    set(sbc_variant_${name}_unsigned
+        "${unsigned}"
         PARENT_SCOPE)
 endfunction()
 

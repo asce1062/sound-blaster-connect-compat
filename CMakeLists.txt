@@ -19,6 +19,8 @@ project(
 #   2. build      modernize/arm64: fresh copy of decompiled/, apply the
 #                 variant's patch set (overlay files + optional patch.cmake
 #                 edits), apktool b, then sign (uber-apk-signer debug key).
+#                 compat also has test-release and release signing targets
+#                 (cmake/sbc_signing.cmake), outside the default build.
 #                 resign: NOT via apktool; copy the stock archive verbatim
 #                 (align once only if needed) and re-sign, then verify that
 #                 the payload is SHA-256 identical to stock.
@@ -277,6 +279,20 @@ if(sbc_native_available)
                 "SBC_VERSION_CODE=${sbc_version_code}"
                 "SBC_UPSTREAM_VERSION=${sbc_upstream_version}"
                 "SBC_UPSTREAM_VERSION_CODE=${sbc_upstream_version_code}")
+
+    # Release signing of compat (cmake/sbc_signing.cmake): apk-compat-release
+    # with the production key, apk-compat-test-release with a disposable one.
+    # Credentials come from the environment when the target runs.
+    include(cmake/sbc_signing.cmake)
+    foreach(mode test-release release)
+        sbc_add_signed_apk(
+            compat
+            MODE ${mode}
+            ABIS arm64-v8a armeabi armeabi-v7a x86
+            NATIVE_ABI arm64-v8a
+            NATIVE_LIB_DIR "${native_arm64_dir}"
+            NATIVE_LIBS ${native_arm64_libs})
+    endforeach()
 endif()
 
 get_property(all_apks GLOBAL PROPERTY sbc_all_apks)
