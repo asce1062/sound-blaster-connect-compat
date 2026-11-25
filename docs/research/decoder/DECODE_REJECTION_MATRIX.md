@@ -1,5 +1,7 @@
 # Decode rejection matrix and statefulness controls (ORACLE-CAPTURED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Gates D3 (bounded, deterministic rejection vectors) and D4 (statefulness
 controls). Not a broad fuzz: a fixed set of single-mutation vectors, each paired
 with a known-good control fed through the same observation window so that

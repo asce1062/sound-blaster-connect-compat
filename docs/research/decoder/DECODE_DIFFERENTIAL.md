@@ -1,5 +1,7 @@
 # Decode differential result
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Byte-for-byte differential of the portable `ctprotocol-core` decoder against the
 stock x86 library. Both run through the same mirror harness
 ([`oracle/`](../../../oracle/)); their `DEC`/`CALL`/`CB` output is compared line

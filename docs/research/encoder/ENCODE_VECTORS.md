@@ -1,5 +1,7 @@
 # Encode vectors
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Catalog of the frozen encode corpus
 [`oracle/vectors/enc_stock.txt`](../../../oracle/vectors/enc_stock.txt) and the
 boundary coverage behind it. The corpus is captured from the stock x86

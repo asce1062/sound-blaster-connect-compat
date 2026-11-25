@@ -1,5 +1,7 @@
 # Encode spec and validation-domain table
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Static map of the stock `libsbxapplogic_ctprotocol_jni` encoder, extracted from
 the x86 decompilation (SHA-256 `215a0bd1...bee7f0e`). It is the implementation
 reference for the portable `ctprotocol-core` encoder. The stock library remains

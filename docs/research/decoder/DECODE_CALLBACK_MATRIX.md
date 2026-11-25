@@ -1,5 +1,7 @@
 # Decode callback matrix (ORACLE-CAPTURED / UNREACHABLE)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Gates D1 (valid-frame coverage) and D5 (callback fidelity). Every inbound callback
 the stock decoder can emit, keyed on the opcode and discriminant that reaches it,
 with the exact typed arguments captured from the oracle. JNI signatures are the

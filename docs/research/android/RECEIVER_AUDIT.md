@@ -1,5 +1,7 @@
 # RECEIVER_AUDIT
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5A audit of exported components in the modernized arm64 build, with the
 focus on whether each first-party receiver and service needs
 `android:exported="true"` or can be `NOT_EXPORTED` (`exported="false"`). Source

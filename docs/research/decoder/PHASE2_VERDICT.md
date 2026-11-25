@@ -1,5 +1,7 @@
 # Phase 2 verdict - decoder oracle
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Single verdict for the decoder-oracle phase. The stock x86 CtProtocol library was
 used as the behavioral oracle to recover the observable inbound contract; no
 decoder code was implemented in this phase. Oracle `.so` 99672 bytes, SHA-256

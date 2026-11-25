@@ -1,5 +1,7 @@
 # Decode stream / framing behavior (ORACLE-CAPTURED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Gate D2. How the stock decoder treats call boundaries, partial frames,
 concatenation, and junk, captured against the oracle (not inferred from
 decompilation). Corpus [`vectors/dec_stream.txt`](../../../oracle/vectors/dec_stream.txt),

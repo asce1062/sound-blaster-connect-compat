@@ -1,5 +1,7 @@
 # SBConnect bring-up pipeline
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 The decode -> patch -> rebuild -> sign pipeline for the Sound Blaster Connect
 APK, and the recorded evidence for its two mutually exclusive outputs. This
 lane is **APK packaging / Android compatibility only** — it does not touch

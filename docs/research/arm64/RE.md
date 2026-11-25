@@ -1,5 +1,7 @@
 # arm64 native track — reverse engineering
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Recovering the two 32-bit native libraries so they can be rebuilt for
 `arm64-v8a` (64-bit-only devices) and so the command protocol is documented
 for a future first-party app.

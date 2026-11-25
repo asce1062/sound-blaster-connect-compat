@@ -1,5 +1,7 @@
 # PLAY_PROTECT_MATRIX
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5A record of Google Play Protect behavior toward the modernized,
 debug-signed arm64 build across install paths and devices. This project does not
 disable, bypass, patch, suppress, or otherwise interfere with Play Protect; this

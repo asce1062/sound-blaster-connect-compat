@@ -1,5 +1,7 @@
 # SBConnect compatibility matrix
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Where each variant stands, and the per-change ledger for `modernize`. This
 lane is limited to devices that can execute the original 32-bit native
 libraries; **no arm64 support is claimed**. See `PIPELINE.md` for hashes,

@@ -1,5 +1,7 @@
 # PERMISSION_AUDIT
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5A permission audit for the modernized arm64 Sound Blaster Connect build.
 Every `uses-permission` in the packaged `AndroidManifest.xml` is enumerated,
 classified by Android protection level, justified against app function, and given

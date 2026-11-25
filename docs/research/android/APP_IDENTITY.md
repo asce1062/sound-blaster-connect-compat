@@ -1,5 +1,7 @@
 # APP_IDENTITY
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5A record of the modernized arm64 build's identity and signing, against the
 stock `SBConnect_v1.04.02.apk`. Covers package identity, version, SDK range, and
 the signing certificate and scheme, with the distribution implications of each.

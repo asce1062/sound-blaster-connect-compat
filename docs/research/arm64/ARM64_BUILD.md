@@ -1,5 +1,7 @@
 # ARM64_BUILD
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5 gates A0 and A1. Builds the proven portable CtProtocol core and the
 serial-port shim for `arm64-v8a` and records the native-surface metadata.
 

@@ -1,5 +1,7 @@
 # Frozen contract (STATIC-MAPPED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 The behavioral contract the arm64 reimplementation must satisfy, frozen from the
 stock 32-bit libraries in `SBConnect_v1.04.02.apk` and the decoded smali. The
 original 32-bit library is the behavioral oracle; this file is the static map,

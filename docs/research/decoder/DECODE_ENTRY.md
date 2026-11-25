@@ -1,5 +1,7 @@
 # Decode entry contract (ORACLE-CAPTURED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Gate D0 of the decoder-oracle phase. The observable entry contract of the stock
 x86 CtProtocol library's inbound path, captured against the behavioral oracle,
 not inferred from decompiler structure. Oracle `.so`:

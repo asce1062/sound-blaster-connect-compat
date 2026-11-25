@@ -1,5 +1,7 @@
 # ARM64_PACKAGING
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5 gates A2 and A3. Audits every native-library load site in the stock
 Java app, then packages the arm64 libraries into a multi-ABI APK via the
 modernize path.

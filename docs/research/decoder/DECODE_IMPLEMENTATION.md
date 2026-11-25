@@ -1,5 +1,7 @@
 # Decode implementation
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 The portable `ctprotocol-core` inbound decoder. One JNI-free parser
 ([`core/ctprotocol_decode.c`](../../../patches/arm64/native/ctprotocol/core/ctprotocol_decode.c),
 [`.h`](../../../patches/arm64/native/ctprotocol/core/ctprotocol_decode.h)) plus a

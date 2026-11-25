@@ -1,5 +1,7 @@
 # Checkpoint - 32-bit oracle lane (CLOSED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Final checkpoint for the 32-bit behavioral-oracle lane of the arm64 native
 track. This lane froze the ctprotocol contract, built the 32-bit differential
 harness, and captured the encode oracle from the stock library. It stops here

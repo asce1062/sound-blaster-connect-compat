@@ -1,5 +1,7 @@
 # ARM64_RUNTIME
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5 gates A4, A5, A6. Installs the multi-ABI APK on a native arm64-v8a
 runtime and proves the stock Java app loads and binds its native surface and
 reaches its normal device-connection UI.

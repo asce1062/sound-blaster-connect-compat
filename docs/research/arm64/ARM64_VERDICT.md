@@ -1,5 +1,7 @@
 # ARM64_VERDICT
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Phase 5 verdict for the native CtProtocol arm64 bringup.
 
 ```

@@ -1,5 +1,7 @@
 # SBConnect bring-up — findings
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Compatibility analysis of the stock `SBConnect_v1.04.02.apk` and what making
 it run on current Android requires. This is the reference the pipeline and
 both tracks build against.

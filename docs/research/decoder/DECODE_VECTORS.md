@@ -1,5 +1,7 @@
 # Decode valid-frame vectors (ORACLE-CAPTURED)
 
+> **Historical record.** Kept as evidence of how behavior was established; not updated for later changes. Status, corrections and the maintained references: [research index](../README.md).
+
 Gate D1. The frozen valid-frame corpus and its oracle capture: every
 response/callback family constructible from the static dispatcher, each reached by
 at least one accepted frame. Corpus
