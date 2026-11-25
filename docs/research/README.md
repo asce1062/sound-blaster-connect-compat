@@ -64,6 +64,8 @@ Classification: **Research** explains how behavior was recovered or decided;
 | [RECEIVER_AUDIT.md](android/RECEIVER_AUDIT.md) | Validation | Export decision for each first-party component. Verdict HARDENING_PASS. |
 | [APP_IDENTITY.md](android/APP_IDENTITY.md) | Research | Package identity, version, SDK range and signing of the rebuilt APK against the stock APK. |
 | [PLAY_PROTECT_MATRIX.md](android/PLAY_PROTECT_MATRIX.md) | Validation | Observed Play Protect behavior toward the debug-signed build. |
+| [HARDWARE_VALIDATION.md](android/HARDWARE_VALIDATION.md) | Validation | `compat` on the Galaxy S24 Ultra (API 37) with the Katana, next to an `arm64` install: coexistence, permissions, arm64 runtime, read and write, exports, boot, Play Protect, regression. |
+| [RELEASE_SIGNING.md](android/RELEASE_SIGNING.md) | Validation | `test-release` and `release` signing of `compat` with disposable keys: positive and fail-closed controls, credential exposure, and the emulator update rehearsal. |
 
 ## Vocabulary
 
@@ -160,3 +162,4 @@ Corrections to the records, by record. The record text is unchanged.
 | `oracle/vectors/dec_valid.txt` comments | `hwBtn` signature `(i,byte[])`. | The callback signature is `(IZZZZZZZ)V`, as in the harness and [JNI_INTERFACE.md](../technical/JNI_INTERFACE.md). |
 | [FREEZE.md](arm64/FREEZE.md), [CHECKPOINT.md](arm64/CHECKPOINT.md) | A count of 35 native methods over a name list that omits `getHwBtn`. | The Java class declares 35 native methods, `getHwBtn` and `decode` included. |
 | [FINDINGS.md](android/FINDINGS.md):21-27 | Causes of the Play Store "not compatible" listing. | Inferred from the manifest and platform rules, not tested against the Play Store. |
+| [PLAY_PROTECT_MATRIX.md](android/PLAY_PROTECT_MATRIX.md):41 | A user sideload is expected to show a warning with an install-anyway choice. | On the S24 Ultra at API 37, a user sideload of the debug-signed `compat` build was blocked with no install-anyway choice ([HARDWARE_VALIDATION.md](android/HARDWARE_VALIDATION.md)). |

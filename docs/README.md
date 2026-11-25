@@ -3,7 +3,7 @@
 | Section | For | Contents |
 |---|---|---|
 | [user/](user/) | people installing the app | [INSTALLATION.md](user/INSTALLATION.md): which variant, install, first launch, troubleshooting |
-| [development/](development/) | people building or changing the project | [BUILDING.md](development/BUILDING.md), [TESTING.md](development/TESTING.md), [ARCHITECTURE.md](development/ARCHITECTURE.md), [TOOLCHAIN.md](development/TOOLCHAIN.md) |
+| [development/](development/) | people building or changing the project | [BUILDING.md](development/BUILDING.md), [TESTING.md](development/TESTING.md), [ARCHITECTURE.md](development/ARCHITECTURE.md), [TOOLCHAIN.md](development/TOOLCHAIN.md), [SIGNING.md](development/SIGNING.md), [RELEASE.md](development/RELEASE.md) |
 | [technical/](technical/) | anyone reimplementing or verifying behavior | maintained contracts, each claim marked with its evidence basis |
 | [decisions/](decisions/) | maintainers | architecture decision records |
 | [research/](research/) | anyone checking how behavior was established | historical research and validation records, errata, frozen-evidence checksums |

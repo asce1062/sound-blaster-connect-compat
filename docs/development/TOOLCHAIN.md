@@ -22,6 +22,7 @@ mismatch:
 | Ninja | any | generator (bundled with the SDK's CMake) |
 | Android NDK | `25.1.8937393` (r25b), exact | arm64-v8a native libraries; the revision is pinned so the build reproduces the validated binaries |
 | Android build-tools | 33.0.1 | `zipalign` (resign), `d8` (oracle harness) |
+| Android build-tools | `37.0.0`, exact | `apksigner`, `zipalign`, `aapt2` for test-release and release signing ([SIGNING.md](SIGNING.md)); only those targets need it |
 | adb | any | deploy target, oracle harness |
 
 The NDK is located from `-Dandroid_ndk`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`,

@@ -83,9 +83,11 @@ Outputs, in `build/`:
 | `sbc_compat-aligned-debugSigned.apk` | `compat`: `arm64` with the application ID `io.github.asce1062.sbconnect.compat`, label SB Connect Compat and the project version |
 | `release.env` | the version metadata of [`cmake/sbc_version.cmake`](../../cmake/sbc_version.cmake) as `KEY=VALUE` lines |
 
-Each signed APK has a matching `.idsig` file (APK Signature Scheme v4) next to
-it. All variants are signed with a debug key by uber-apk-signer. Release
-signing is not part of the build.
+Each debug-signed APK has a matching `.idsig` file (APK Signature Scheme v4)
+next to it. All variants are signed with a debug key by uber-apk-signer; each
+also leaves its unsigned APK, `sbc_<variant>.apk`. Release and test-release
+signing of `compat` are separate targets with their own credentials, in
+[SIGNING.md](SIGNING.md).
 
 The project version is set once, in `project(VERSION)` of the root
 `CMakeLists.txt`. The `compat` versionName and versionCode, the release tag
@@ -102,6 +104,8 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 |---|---|
 | `decode` | `decompiled/` |
 | `apk-resign`, `apk-modernize`, `apk-arm64`, `apk-compat` | one variant |
+| `apk-modernize-unsigned`, `apk-arm64-unsigned`, `apk-compat-unsigned` | the variant's unsigned APK |
+| `apk-compat-test-release`, `apk-compat-release` | `compat` signed with a disposable or the production key ([SIGNING.md](SIGNING.md)); not part of `apks` |
 | `native-arm64-v8a` | the two native libraries, into `build/native/arm64-v8a/lib/` |
 | `apks` (default) | every defined variant |
 | `deploy` | installs and launches one variant, see below |
@@ -121,6 +125,8 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 | `deploy_debug` | `ON` | `ON` tails logcat until interrupted; `OFF` watches for `deploy_watch_timeout` seconds and fails on a crash |
 | `deploy_watch_timeout` | `15` | watch window in seconds |
 | `adb_serial` | empty | device serial for `deploy` |
+| `android_sdk_root` | `ANDROID_SDK_ROOT`, `ANDROID_HOME` or `%LOCALAPPDATA%/Android/Sdk` | SDK holding the signing build-tools |
+| `android_build_tools_version` | `37.0.0` | build-tools release of `apksigner`, `zipalign` and `aapt2` for release signing |
 | `sbc_package` | `com.creative.apps.sbconnect` | stock application ID of the `resign`, `modernize` and `arm64` variants. `deploy` launches the package of the chosen variant, so `compat` launches `io.github.asce1062.sbconnect.compat` |
 
 ## Install on a device

@@ -135,8 +135,19 @@ system never compares them. Configure writes the values to
 | Installed metadata | `compat`: versionCode 1000, versionName `1.04.02-compat.0.1.0`, targetSdk 34. `arm64`: 10402, `1.04.02`, targetSdk 34 | **Emulator** |
 | Launch | `compat` starts from the launcher, shows the runtime permission request (location, storage, microphone at API 30), and after the grants shows the `MainActivity` dashboard. The Connect to Device screen starts Bluetooth discovery. Logcat has no `FATAL EXCEPTION`, `UnsatisfiedLinkError` or `dlopen` failure. `arm64` launches with `compat` installed | **Emulator** |
 | Component exports | From the shell uid, `am startservice` of `MainService` and explicit broadcasts to `MainReceiver` and `android.support.v4.media.session.MediaButtonReceiver` of `compat` are refused as not exported. `MediaButtonReceiver` of `arm64` is refused the same way | **Emulator** |
-| Native library load | Not reached. `sbxapplogic_ctprotocol_jni` and `serialport_jni` load in the static initializers of `SbxSppCommandManager` and `SerialPort`, which run only when a device connects; without a Katana neither library is mapped into the process | Pending (**Device**) |
-| Katana discovery and SPP, live state and presets, Nearby Devices permission flow (API 31+), boot receiver and foreground service, Play Protect install result | Not yet run under the new ID | Pending (**Device**) |
+| Native library load without a speaker | Not reached. `sbxapplogic_ctprotocol_jni` and `serialport_jni` load in the static initializers of `SbxSppCommandManager` and `SerialPort`, which run only when a device connects; without a Katana neither library is mapped into the process | **Emulator** |
+| Side-by-side install next to the `arm64` build, on a phone that has that build installed | Both packages listed, launcher activities resolved, no provider conflict. The `arm64` install's metadata and data (its presets, its recent music) are unchanged after the run | **Device** |
+| Native library load | `compat` runs under `zygote64` with ABI `arm64-v8a`. `sbxapplogic_ctprotocol_jni` loads from `lib/arm64` and the CtProtocol session starts after SPP connects. `serialport_jni` does not load (not used on the Bluetooth path). 4 KiB-page kernel | **Device** |
+| Katana | Discovery, SPP, device name, presets, sources, Now Playing. The master volume write is heard on the speaker and read back by the `arm64` app | **Device** |
+| Nearby Devices permission flow (API 37) | Requested on first launch. Discovery and connection follow the grant. Findings: a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices`, a repeated microphone request, and a location request | **Device** |
+| Component exports | From the shell uid, `MainReceiver` and `MediaButtonReceiver` broadcasts are not delivered and `MainService` is refused as not exported. The foreground service starts from the app itself after SPP connects | **Device** |
+| Boot | `BOOT_COMPLETED` reaches `MainReceiver` of `compat` and of the `arm64` install; each starts its process and `MainService` | **Device** |
+| Play Protect, user route | A debug-signed `compat` opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds | **Device** (fail) |
+
+Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md).
+The Play Protect block on the user route is the open distribution issue. The
+identity itself (package, label, versions, provider authority, data
+separation, package-relative code paths) behaves as specified on the device.
 
 ## Sources
 

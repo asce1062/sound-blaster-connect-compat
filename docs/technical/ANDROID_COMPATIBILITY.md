@@ -12,7 +12,7 @@ This document describes, per build variant, what the pipeline changes in the sto
 | **Static** | Read from code, the built manifest, or a recorded structural check (aapt2, apksigner). Not executed. |
 | **Expected** | Platform documentation or inference. Not observed in this project. |
 
-Hardware coverage is two devices: a Pixel 7a (Android 13, API 33, 64-bit only) and a Galaxy S24 Ultra (Android 16, API 36, 64-bit only), each with one Sound BlasterX Katana speaker. No 32-bit-capable device was ever tested, so every statement that `resign` or `modernize` installs or runs on a 32-bit device is **Expected**. No device at API 31, 32, 34 or 35 was tested; the API 34 rules were exercised through the API 36 device.
+Hardware coverage is two devices: a Pixel 7a (Android 13, API 33, 64-bit only) and a Galaxy S24 Ultra (64-bit only), each with one Sound BlasterX Katana speaker. The S24 Ultra ran Android 16 (API 36) for the `arm64` records and Android 17 (API 37) for the `compat` run. No 32-bit-capable device was ever tested, so every statement that `resign` or `modernize` installs or runs on a 32-bit device is **Expected**. No device at API 31, 32, 34 or 35 was tested; the API 34 rules were exercised through the API 36 device.
 
 ## Variants at a glance
 
@@ -112,7 +112,8 @@ Side effect (**Static**): at six sites the flags register is also the request-co
 | Variant definition | `sbc_add_variant(compat PATCHES modernize arm64 identity ... PACKAGE <app id> DEFINES ...)`; every `modernize` and `arm64` row applies | **Build** |
 | Identity | Package `io.github.asce1062.sbconnect.compat`, label `SB Connect Compat`, versionName `1.04.02-compat.0.1.0`, versionCode 1000, provider authority under the new package | **Build** (anchor counts), **Static** (aapt2 badging) |
 | Difference from `arm64` | 6 of 4312 archive entries: `AndroidManifest.xml`, `resources.arsc`, `classes.dex` and the three signature files. Staged tree: manifest, `apktool.yml`, two lines of `SbxDeviceManager.smali` | **Static** |
-| Coexistence | A separate package with its own data directory and a unique provider authority, so it installs next to the stock app or a stock-identity variant | **Emulator** (API 30 x86, next to `arm64`); hardware pending. Detail in [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md#verification) |
+| Coexistence | A separate package with its own data directory and a unique provider authority, so it installs next to the stock app or a stock-identity variant | **Emulator** (API 30 x86, next to `arm64`). **Device** (S24 Ultra, API 37, next to an `arm64` install, Katana connected): both run, and each keeps its own data; a volume write from `compat` is read back by `arm64`. Detail in [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md#verification) |
+| Play Protect, user install | A debug-signed `compat` opened from the file manager is blocked ("App blocked to protect your device", no install-anyway option). ADB install succeeds | **Device** (S24 Ultra, API 37), [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md) |
 
 Package-dependence audit and version scheme:
 [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md).
@@ -135,8 +136,8 @@ Package-dependence audit and version scheme:
 ## Not addressed and limits
 
 - **No 32-bit device test.** `resign` and `modernize` install and run on 32-bit-capable devices only as an **Expected** result. The `arm64` variant's retained 32-bit libraries are likewise untested.
-- **Narrow hardware matrix.** One Pixel 7a (API 33), one Galaxy S24 Ultra (API 36), one Katana. API 31, 32, 34 and 35 hardware, other speakers, and other vendors' Bluetooth stacks and permission UIs were not tested. Whether the Katana connected on the S24 Ultra is reported differently by two records: `runtime/s24_launch.txt` lists the Dashboard with the "Touch to connect to an Audio Device" prompt and "Katana not connected", while `ARM64_RUNTIME.md` and the connection regression in `RECEIVER_AUDIT.md` report a connection. This document does not resolve the difference.
-- **Raw logs not preserved.** Device claims rest on the written records and the four excerpts in `docs/research/arm64/runtime/`.
+- **Narrow hardware matrix.** One Pixel 7a (API 33), one Galaxy S24 Ultra (API 36, later API 37), one Katana. API 31, 32, 34 and 35 hardware, other speakers, and other vendors' Bluetooth stacks and permission UIs were not tested. Whether the Katana connected on the S24 Ultra is reported differently by two records: `runtime/s24_launch.txt` lists the Dashboard with the "Touch to connect to an Audio Device" prompt and "Katana not connected", while `ARM64_RUNTIME.md` and the connection regression in `RECEIVER_AUDIT.md` report a connection. Those records do not settle it. The later `compat` run on the same phone, then at Android 17 (API 37), records the SPP connection, CtProtocol traffic and a volume write ([HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md)).
+- **Raw logs not published.** Device claims rest on the written records and the four excerpts in `docs/research/arm64/runtime/`. The raw captures of the API 37 run are kept outside the repository because they contain device identifiers.
 - **Play Store "not compatible" causes are inferred.** [FINDINGS.md](../research/android/FINDINGS.md) attributes the Play listing filter to the low targetSdk, missing ABIs, and implied hardware features. That was not tested. The variants are sideload-only and are not distributed through a store.
 - **Protocol correctness is not claimed.** Encoder and decoder semantics were not modified. Command/response verification against hardware has not been done.
 - **Bundled-library `PendingIntent` sites.** Applying `FLAG_IMMUTABLE` to every site assumes none needs a mutable intent (for example fill-in or inline-reply use). Only the app's own `MainService` path has a runtime trace.
@@ -144,8 +145,8 @@ Package-dependence audit and version scheme:
 - **`neverForLocation` omitted.** apktool 3.0.3's bundled framework predates `android:usesPermissionFlags`, and aapt2 rejects it. `BLUETOOTH_SCAN` is therefore declared without it, and `ACCESS_FINE_LOCATION` remains uncapped, so the app still prompts for location (**Static**).
 - **Notification-listener feature not restored.** `LocalMusicRemoteControllerService` and the now-playing path remain in the package; the access prompt is suppressed.
 - **`MediaButtonReceiver` is not exercised at runtime** (no active media session on the test device); its `exported="false"` value rests on static reasoning.
-- **Rules keyed to targets above 34** (35 and 36) do not apply to a target-34 app and were not evaluated. Platform-wide changes were observed only as far as the API 36 device ran the app. Start restrictions that Android 15 and later apply to foreground services started from `BOOT_COMPLETED` are an unexamined **Expected** risk: the records show `MainService` created from the boot receiver on the S24 Ultra but do not state its foreground state on that path.
-- **Signing is debug-key only,** with consequences listed in [PERMISSIONS.md](PERMISSIONS.md).
+- **Rules keyed to targets above 34** (35 and 36) do not apply to a target-34 app and were not evaluated. Platform-wide changes were observed only as far as the API 36 device ran the app. Android 15 and later restrict foreground services started from `BOOT_COMPLETED`. On the S24 Ultra at API 37, `MainReceiver` starts `MainService` from `BOOT_COMPLETED` as a background service. The service becomes foreground only after a Bluetooth connection, and no start exception occurs (**Device**, [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md)). A foreground start from the boot path was not observed.
+- **Device runs used debug signing.** Test-release and release signing are described in [SIGNING.md](../development/SIGNING.md); no release-signed build has run on hardware. Consequences of the signer are listed in [PERMISSIONS.md](PERMISSIONS.md).
 - **Resources and dex are re-encoded** by `modernize` and `arm64`; byte-level differences from stock in those entries are expected and not individually audited.
 
 ## Superseded statements in other records

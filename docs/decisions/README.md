@@ -16,8 +16,7 @@ new record that supersedes the old one, not by editing it.
 | [0008](0008-separate-distribution-identity.md) | Distribute under a separate application ID; keep stock-identity controls | Accepted |
 | [0009](0009-version-scheme.md) | Derive all version metadata from the CMake project version | Accepted |
 | [0010](0010-16k-page-alignment.md) | Align 64-bit native libraries to 16 KiB with a linker flag | Accepted |
-
-Release signing will be recorded once it is established.
+| [0011](0011-release-signing-modes.md) | Sign releases in a separate, fail-closed pipeline with externally supplied keys | Accepted; production key not created |
 
 Template: Context, Decision, Consequences, Status. Keep records short and
 link to the technical reference or research record that holds the detail.
