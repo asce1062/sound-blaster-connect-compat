@@ -8,7 +8,8 @@
 # For each patch, in order: copy patches/<p>/overlay/ onto the tree, then run
 # patches/<p>/patch.cmake with ${TREE} in scope. PATCHES is comma-separated
 # (a CMake ';' list would be split by the -D on the command line); empty = no
-# patches, a plain repackage.
+# patches, a plain repackage. SBC_NATIVE_LIB_DIR, when set, is in scope for
+# every patch.cmake (the arm64 patch copies its libraries from it).
 
 if(NOT DEFINED TREE OR NOT IS_DIRECTORY "${TREE}")
     message(FATAL_ERROR "apply_patch: TREE not set or missing: '${TREE}'")

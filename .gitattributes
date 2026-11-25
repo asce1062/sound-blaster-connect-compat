@@ -1,7 +1,14 @@
+# No binaries are tracked: the stock APK is a local build input and the native
+# libraries are built from source. These keep any stray binary out of text
+# handling if one is added by mistake (.gitignore blocks the common ones).
+*.apk      binary
+*.so       binary
+*.jar      binary
 # Normalize line endings for text sources (Windows checkout, LF in repo).
 *.cmake    text eol=lf
 *.md       text eol=lf
 *.py       text eol=lf
 *.json     text eol=lf
 *.yml      text eol=lf
+*.sh       text eol=lf
 CMakeLists.txt text eol=lf

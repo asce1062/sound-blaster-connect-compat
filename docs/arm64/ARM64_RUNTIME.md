@@ -10,7 +10,6 @@ reaches its normal device-connection UI.
 |---|---|
 | Model | Pixel 7a (`lynx`) |
 | Android | 13 (SDK 33) |
-| Serial | <redacted> |
 | `ro.product.cpu.abilist` | `arm64-v8a` |
 | `ro.product.cpu.abilist64` | `arm64-v8a` |
 | `ro.product.cpu.abilist32` | *(empty)* |
@@ -33,7 +32,7 @@ Installed via `adb install -r`; `Success`, and `dumpsys package` reports
   natives bind with no `UnsatisfiedLinkError`, wrong-ELF, or missing-symbol
   error.
 - The app opens an RFCOMM SPP channel (`uuid=0x1101`) to the Katana
-  (`bd_addr xx:xx:xx:xx:xx:xx`); `BluzManager` binds its custom
+  (`bd_addr`, redacted in the excerpt); `BluzManager` binds its custom
   command/data listeners.
 - `SbxAppLogic.SbxSppCommandManager: [handleProtocolEvent]
   SOUNDCORE_COMMAND_MAXPAYLOAD` - the native-backed command manager processes

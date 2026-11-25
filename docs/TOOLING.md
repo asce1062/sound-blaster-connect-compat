@@ -1,52 +1,36 @@
-# Tooling — SBConnect bring-up
+# Tooling
 
-Where the tools are on this machine, so the next session does not re-search.
-Machine-wide tool locations live in `~/.claude/CLAUDE.md`; this file records
-the Android-specific ones and what the pipeline fetches.
+What the build needs, what it fetches, and what the analysis work used.
+Install steps and commands are in `BUILDING.md`.
 
-## The pipeline fetches (SHA-256 verified)
+## Fetched by the configure step (SHA-256 verified)
 
-The CMake configure downloads these to `build/tools/` and verifies the hash:
+The CMake configure downloads these to `build/tools/` and fails on a hash
+mismatch:
 
-| Tool | Version | Pin source |
+| Tool | Version | Source |
 |---|---|---|
-| apktool | 3.0.3 | same jar + hash as a sibling project (CI-verified there) |
-| uber-apk-signer | 1.3.0 | same |
+| apktool | 3.0.3 | github.com/iBotPeaches/Apktool release asset |
+| uber-apk-signer | 1.3.0 | github.com/patrickfav/uber-apk-signer release asset |
 
-Requires: Java 17+ (apktool 3.x), CMake 3.22+, Ninja, internet on first
-configure.
+## Required locally
 
-## On this machine already
+| Tool | Version | Used for |
+|---|---|---|
+| Java | 17+ | apktool 3.x, uber-apk-signer, oracle harness |
+| CMake | 3.22+ | the pipeline (Android SDK's `cmake/3.22.1` works) |
+| Ninja | any | generator (bundled with the SDK's CMake) |
+| Android NDK | `25.1.8937393` (r25b), exact | arm64-v8a native libraries; the revision is pinned so the build reproduces the validated binaries |
+| Android build-tools | 33.0.1 | `zipalign`, `apksigner`, `d8` (oracle) |
+| adb | any | deploy target, oracle harness |
 
-- **Android SDK** `%LOCALAPPDATA%\Android\Sdk`
-  - `build-tools\33.0.1\` — `aapt2.exe`, `apksigner.bat/.jar`, `zipalign.exe`,
-    `d8.bat`, and a bundled `apktool.jar` (**2.9.3**, older than the pipeline's
-    3.0.3; fine for ad-hoc `d`/`b` inspection).
-  - `cmake\3.22.1\bin\cmake.exe` and `cmake\3.10.2.4988404\bin\{cmake,ninja}.exe`
-    — no system CMake/Ninja on PATH; use these or add them to PATH.
-  - `platform-tools` has `adb`; `adb` is also at `C:\platform-tools\adb`.
-  - `platforms\` android-16..android-33; `ndk\` 21.3, 21.4, 25.1.
-- **Java** 23 on PATH (`java`); JDKs under `C:\Program Files\Java\`.
-- **git-lfs** 3.7.1 on PATH (the stock APK is LFS-tracked).
+The NDK is located from `-Dandroid_ndk`, `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME`,
+or `ndk/25.1.8937393` under `ANDROID_SDK_ROOT`, `ANDROID_HOME` or the Android
+Studio default SDK directory (`cmake/sbc_native.cmake`). Without it the
+`arm64` variant is not generated; `resign` and `modernize` still build.
 
-## Sibling projects (reference, not dependencies)
+## Analysis tools (not needed to build)
 
-- `..\sibling-project` — the CMake APK pipeline this one mirrors
-  (decode → patch overlay → rebuild → sign; it adds AES asset crypto this app
-  does not need). Patch-framework idiom, fetch/verify helper, deploy script.
-- `..\sibling-project-2` — native RE harness and toolchain:
-  - `tools\` (gitignored): `jadx-1.5.6`, `Il2CppDumper`, `frida` +
-    `frida-il2cpp-bridge`, `frida-server-17.18.0-android-arm64`, `quickbms`.
-  - `vendor\` submodules: `Apktool`, `APKEditor`, `uber-apk-signer`,
-    `Android-Mod-Menu`. `tools\bin\APKEditor.jar` (1.4.9) is prebuilt.
-  - `common\`: `And64InlineHook`, `elf_img.h`, `zygisk.hpp` — aarch64 inline
-    hooking + Zygisk harness, relevant to the arm64 native track.
-
-## Reverse engineering (arm64 track)
-
-- **REA** MCP server (`rea`) — registered but **timed out connecting** this
-  session (30 s). Retry; it drives Ghidra (default provider).
-- **Ghidra** 12.1.4 and 12.1.2 in `<tools>\`.
-- **IDA** Professional 9.1 and 7.2. Headless IDA is parked (see
-  `~/.claude/CLAUDE.md`); use Ghidra/REA.
-- **jadx** (in the sibling project's `tools\`) for the Java/smali side.
+- Ghidra 12.x for the native reverse engineering behind `docs/arm64/`.
+- jadx for the Java/smali side.
+- An x86 Android emulator (API 30) for the oracle harness in `oracle/`.

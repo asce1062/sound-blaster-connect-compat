@@ -6,6 +6,10 @@
 # (uber-apk-signer debug key) into build/sbc_<name>-aligned-debugSigned.apk.
 #
 #   sbc_add_variant(<name> PATCHES a b c)   # empty PATCHES = pure repackage
+#   sbc_add_variant(<name> PATCHES ... NATIVE_LIB_DIR <dir> NATIVE_LIBS <files>)
+#
+# NATIVE_LIB_DIR is passed to every patch.cmake as ${SBC_NATIVE_LIB_DIR};
+# NATIVE_LIBS are the built libraries in it, added as build dependencies.
 #
 # A patch is a patches/<name>/ directory with either or both of:
 #   overlay/      a file tree copied verbatim onto the staged tree (its paths
@@ -21,7 +25,7 @@
 include_guard(GLOBAL)
 
 function(sbc_add_variant name)
-    cmake_parse_arguments(V "" "" "PATCHES" ${ARGN})
+    cmake_parse_arguments(V "" "NATIVE_LIB_DIR" "PATCHES;NATIVE_LIBS" ${ARGN})
 
     set(payload_deps)
     set(patch_csv "")
@@ -57,7 +61,8 @@ function(sbc_add_variant name)
         COMMAND
             "${CMAKE_COMMAND}" "-DTREE=${tree}"
             "-DPATCHES_ROOT=${PROJECT_SOURCE_DIR}/patches"
-            "-DPATCHES=${patch_csv}" -P "${apply_script}"
+            "-DPATCHES=${patch_csv}" "-DSBC_NATIVE_LIB_DIR=${V_NATIVE_LIB_DIR}"
+            -P "${apply_script}"
         COMMAND
             "${CMAKE_COMMAND}" -E echo
             "+ ${java_bin} -jar ${apktool_jar} b ${tree} -o ${unsigned} -f --jobs ${apktool_jobs}"
@@ -71,6 +76,7 @@ function(sbc_add_variant name)
         DEPENDS "${stamp_decompiled}"
                 ${decompiled_files}
                 ${payload_deps}
+                ${V_NATIVE_LIBS}
                 "${apply_script}"
                 "${apktool_jar}"
                 "${signer_jar}"

@@ -17,7 +17,10 @@ SO="${1:?usage: run.sh <so> <enc|dec> [corpus]}"
 MODE="${2:-enc}"
 CORPUS="${3:-}"
 
-SDK="$ANDROID_SDK_ROOT"
+# Android SDK root: $ANDROID_SDK_ROOT, else $ANDROID_HOME, else the Android
+# Studio default under %LOCALAPPDATA%.
+SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$(cygpath -u "${LOCALAPPDATA:-}")/Android/Sdk}}"
+[ -d "$SDK/platform-tools" ] || { echo "run.sh: Android SDK not found at '$SDK'; set ANDROID_SDK_ROOT" >&2; exit 2; }
 ADB="$SDK/platform-tools/adb.exe"
 ANDROID_JAR="$(w "$SDK/platforms/android-30/android.jar")"
 D8_JAR="$(w "$SDK/build-tools/33.0.1/lib/d8.jar")"

@@ -29,23 +29,22 @@ project(
 # MUTUALLY EXCLUSIVE outputs built side by side in a single configure:
 #
 #   resign     payload-preserving signing control. The stock archive is copied
-#              verbatim and re-signed with a debug key so it sideloads; no
-#              resource, manifest, or dex bytes are re-encoded. Bypasses the
-#              Play Store listing filter; runs on any modern phone that still
-#              has 32-bit support.
+#              verbatim and re-signed with a debug key so it installs by adb;
+#              no resource, manifest, or dex bytes are re-encoded. Runs only on
+#              devices that still have 32-bit support.
 #   modernize  stock + targetSdk raised and the Android 12/13/14 behavior
 #              changes that follow (see patches/modernize/). Decode->rebuild
 #              via apktool; more smali surgery, more risk.
-#
-# Neither reaches a 64-bit-only device (Pixel 7/8): both still ship only the
-# stock 32-bit native libs. arm64-v8a support is the separate native track
-# (patches/arm64/ + the own-app protocol work); see docs/FINDINGS.md.
+#   arm64      modernize + arm64-v8a native libraries built from source, so the
+#              app runs on 64-bit-only devices (Pixel 7/8, Galaxy S24).
 # ---------------------------------------------------------------------------
 
 # --- inputs -----------------------------------------------------------------
 
+# The stock APK is third-party software and is never committed. Supply your
+# own copy at inputs/SBConnect_v1.04.02.apk (gitignored) or pass -Dapk_input.
 set(apk_input
-    "${CMAKE_CURRENT_SOURCE_DIR}/SBConnect_v1.04.02.apk"
+    "${CMAKE_CURRENT_SOURCE_DIR}/inputs/SBConnect_v1.04.02.apk"
     CACHE FILEPATH "Path to the stock Sound Blaster Connect APK")
 set(apk_input_sha256
     "fe1ffe0c93b6476ae6ed1d2cb6891cde2fbe206d4e898d6ad8c75222e9bf99be"
@@ -123,8 +122,9 @@ if(NOT EXISTS "${apk_input}")
     message(
         FATAL_ERROR
             "apk_input does not exist: '${apk_input}'\n"
-            "  the stock APK is tracked with git-lfs; run 'git lfs pull' after cloning,\n"
-            "  or pass -Dapk_input=<path to SBConnect_v1.04.02.apk>")
+            "  The stock APK is not part of this repository. Place your own copy of\n"
+            "  SBConnect_v1.04.02.apk (SHA-256 ${apk_input_sha256}) at\n"
+            "  inputs/SBConnect_v1.04.02.apk, or pass -Dapk_input=<path>. See BUILDING.md.")
 endif()
 
 # --- fetch helper: download once, verify SHA-256 when provided --------------
@@ -206,7 +206,7 @@ if(NOT
             "apk_input SHA-256 mismatch: ${apk_input}\n"
             "  expected: ${apk_input_sha256}\n"
             "  actual:   ${apk_input_actual}\n"
-            "  (a git-lfs pointer that was not pulled hashes wrong too)")
+            "  Only the exact 1.04.02 release is supported; patches anchor on its bytes.")
 endif()
 message(STATUS "apk_input: ${apk_input}")
 message(STATUS "apk_input SHA-256: ${apk_input_actual}")
@@ -248,11 +248,21 @@ include(cmake/sbc_patches.cmake)
 #           and re-signed, then proven SHA-256 payload-identical to stock. This
 #           isolates signing/distribution from every other change.
 # modernize targetSdk bump + Android 12/13/14 behavior fixes (decode->rebuild).
-# arm64     native 64-bit track; built on the modernize base once its libs
-#           exist. Registered here so neither track edits this file again.
+# arm64     modernize + arm64-v8a native libraries built from
+#           patches/arm64/native/ with the pinned NDK (sbc_native.cmake).
+#           Skipped when that NDK is not available.
 sbc_add_resign_control(resign)
 sbc_add_variant(modernize PATCHES modernize)
-sbc_add_variant(arm64 PATCHES modernize arm64)
+
+include(cmake/sbc_native.cmake)
+if(sbc_native_available)
+    sbc_add_native_abi(arm64-v8a native_arm64_dir native_arm64_libs)
+    sbc_add_variant(
+        arm64
+        PATCHES modernize arm64
+        NATIVE_LIB_DIR "${native_arm64_dir}"
+        NATIVE_LIBS ${native_arm64_libs})
+endif()
 
 get_property(all_apks GLOBAL PROPERTY sbc_all_apks)
 add_custom_target(apks ALL DEPENDS ${all_apks})
