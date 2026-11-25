@@ -5,8 +5,9 @@
 #
 #   cmake -DTREE=<tree> -DPATCHES_ROOT=<patches/> -DPATCHES=a,b -P apply_patch.cmake
 #
-# For each patch, in order: copy patches/<p>/overlay/ onto the tree, then run
-# patches/<p>/patch.cmake with ${TREE} in scope. PATCHES is comma-separated
+# For each patch, in order: copy patches/<p>/overlay/ onto the tree, copy the
+# smali compiled from patches/<p>/java/ (${SBC_JAVA_ROOT}/<p>/smali) onto the
+# tree's smali/, then run patches/<p>/patch.cmake with ${TREE} in scope. PATCHES is comma-separated
 # (a CMake ';' list would be split by the -D on the command line); empty = no
 # patches, a plain repackage. SBC_NATIVE_LIB_DIR, when set, is in scope for
 # every patch.cmake (the arm64 patch copies its libraries from it).
@@ -43,6 +44,18 @@ foreach(p IN LISTS patch_list)
                 COMMAND "${CMAKE_COMMAND}" -E copy_directory "${pdir}/overlay"
                         "${TREE}" COMMAND_ERROR_IS_FATAL ANY)
         endif()
+    endif()
+
+    # Java sources of the patch, compiled to smali by sbc_java.cmake.
+    if(IS_DIRECTORY "${pdir}/java")
+        set(jsmali "${SBC_JAVA_ROOT}/${p}/smali")
+        if(NOT IS_DIRECTORY "${jsmali}")
+            message(FATAL_ERROR "apply_patch[${p}]: compiled smali missing: ${jsmali}")
+        endif()
+        message(STATUS "apply_patch[${p}]: java smali => tree/smali")
+        execute_process(
+            COMMAND "${CMAKE_COMMAND}" -E copy_directory "${jsmali}" "${TREE}/smali"
+                    COMMAND_ERROR_IS_FATAL ANY)
     endif()
 
     if(EXISTS "${pdir}/patch.cmake")

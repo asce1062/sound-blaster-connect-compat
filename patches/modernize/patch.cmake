@@ -4,8 +4,9 @@
 # Runs with ${TREE} set to the staged (fresh) copy of the pristine decompiled/
 # tree. Edits are in place (apktool.yml, AndroidManifest.xml, smali), and the
 # overlay tree patches/modernize/overlay/ is copied onto the tree first by
-# apply_patch.cmake. The overlay supplies the smali helper classes that the
-# edits below call: BtPermCompat, FgChannelCompat and RcvCompat.
+# apply_patch.cmake. The overlay supplies the smali helper classes
+# FgChannelCompat and RcvCompat; PermissionLifecycle is compiled from
+# patches/modernize/java/ and copied onto the tree the same way.
 #
 # Method and field names in the smali anchors below (for example MainService.a(),
 # MainActivity.D(), SbxConnectionManager.f() and the field j) are the obfuscated
@@ -18,34 +19,41 @@
 #   * targetSdkVersion: 26 -> 34 in apktool.yml.
 #   * exported (>=31): explicit android:exported on every filtered component
 #     that lacked it. Without it the package does not install on 31+.
-#     MainActivity and LocalMusicRemoteControllerService stay exported;
-#     MainReceiver, MainService, MediaButtonReceiver and AppMeasurementReceiver
-#     are not exported (docs/research/android/RECEIVER_AUDIT.md).
+#     MainActivity stays exported; MainReceiver, MainService,
+#     MediaButtonReceiver, AppMeasurementReceiver, the bundled app-invite
+#     PreviewActivity and LocalMusicRemoteControllerService are not exported
+#     (docs/research/android/RECEIVER_AUDIT.md).
+#   * LocalMusicRemoteControllerService is no longer a notification listener.
 #   * uses-library (>=28): org.apache.http.legacy and android.test.base are
 #     re-added as optional libraries (required=false) because the default
 #     classpath no longer carries them.
 #   * PendingIntent FLAG_IMMUTABLE (>=31): all 23 PendingIntent construction
 #     sites. Without a mutability flag, getActivity/getService/getBroadcast/
 #     getActivities throws IllegalArgumentException at runtime on 31+.
-#   * Bluetooth permissions (>=31): BLUETOOTH_SCAN / BLUETOOTH_CONNECT are
-#     declared; the legacy BLUETOOTH / BLUETOOTH_ADMIN are capped at
-#     maxSdkVersion 30.
+#   * Bluetooth permissions (>=31): BLUETOOTH_SCAN (neverForLocation) and
+#     BLUETOOTH_CONNECT are declared; the legacy BLUETOOTH / BLUETOOTH_ADMIN
+#     are capped at maxSdkVersion 30.
 #   * POST_NOTIFICATIONS (>=33) is declared.
+#   * Stock permissions with no first-party use are removed:
+#     MEDIA_CONTENT_CONTROL, SYSTEM_ALERT_WINDOW, c2dm RECEIVE and
+#     WRITE_EXTERNAL_STORAGE.
 #   * foregroundServiceType + FOREGROUND_SERVICE* (>=34): MainService is a
-#     foreground service (2-arg startForeground, so it adopts the manifest
-#     type). mediaPlayback has no dangerous-permission prerequisite, so the
-#     service starts before the Bluetooth runtime permissions are granted.
+#     connectedDevice foreground service (2-arg startForeground, so it adopts
+#     the manifest type). Its prerequisite is met by normal permissions, so
+#     the service starts before the Bluetooth runtime permissions are granted.
 #   * Foreground-notification channel (>=26): FgChannelCompat.ensure() is
 #     called after each channel-less NotificationCompat.Builder constructor in
 #     MainService.
 #   * Receiver registration (>=34): every two-arg registerReceiver call in the
 #     smali tree is redirected to RcvCompat.register (96 sites).
-#   * Runtime permission chain (>=31): BtPermCompat requests the Nearby
-#     devices (BLUETOOTH_CONNECT/SCAN) and notification permissions in
-#     sequence after the stock permission request, and gates Bluetooth
-#     discovery and bonded-device enumeration until the grant lands.
-#   * Notification-listener prompt: the stock prompt for notification-listener
-#     access is suppressed.
+#   * Runtime-permission lifecycle: PermissionLifecycle owns every request
+#     (once-per-install launch sequence, feature-scoped prompts with
+#     explanations and a settings path) and gates the Bluetooth entry points
+#     until Nearby devices is granted. The stock request batch is replaced.
+#   * Stock hidden-API calls: BluetoothHeadset.connect is skipped without
+#     MODIFY_PHONE_STATE on 31+; the device name uses the public getAlias()
+#     on 30+.
+#   * Notification-listener prompt: removed.
 #
 # CtProtocol and the native libraries are untouched by this patch; the arm64
 # variant adds its own libraries (patches/arm64/).
@@ -182,12 +190,10 @@ set(mf "${TREE}/AndroidManifest.xml")
 
 # --- >=31: explicit android:exported on every filtered component -----------
 # API 31+ requires an explicit android:exported on any filtered component.
-# Only two first-party components need outside access: MainActivity (the
-# launcher) and LocalMusicRemoteControllerService (the system binds it as a
-# NotificationListenerService, gated by BIND_NOTIFICATION_LISTENER_SERVICE), so
-# both stay exported. MainReceiver, MainService, and the media-button receiver
-# are reached only by protected system broadcasts, same-app intents, and the
-# app's own PendingIntents, never by a third-party app, so they are not exported
+# Only MainActivity (the launcher) needs outside access. MainReceiver,
+# MainService, and the media-button receiver are reached only by protected
+# system broadcasts, same-app intents, and the app's own PendingIntents, never
+# by a third-party app, so they are not exported
 # (docs/research/android/RECEIVER_AUDIT.md, findings R1-R3). AppMeasurementReceiver is fed only by
 # in-package broadcasts, so false.
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainActivity\""
@@ -196,9 +202,26 @@ _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainActivity\""
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainReceiver\""
          "android:exported=\"false\" android:name=\"com.creative.apps.sbconnect.MainReceiver\""
          1)
+# LocalMusicRemoteControllerService: no longer a notification listener. The
+# stock declaration makes it bindable by the system as a
+# NotificationListenerService (BIND_NOTIFICATION_LISTENER_SERVICE, the
+# NotificationListenerService action), which lets the user grant it access to
+# every notification. The service's onNotificationPosted is empty; the access
+# fed only the Now Playing metadata of other players through
+# RemoteController, and the prompt for it is already suppressed below. The
+# app binds the service itself with an explicit-package intent
+# (LocalMusicManager.i(), action BIND_RC_CONTROL_SERVICE), which an
+# unexported service still accepts, so that action stays and the listener
+# action and permission go (docs/research/android/PERMISSION_LIFECYCLE.md).
 _sbc_sub("${mf}"
-         "android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\""
-         "android:exported=\"true\" android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\""
+         "<service android:label=\"@string/app_name\" android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\" android:permission=\"android.permission.BIND_NOTIFICATION_LISTENER_SERVICE\">\n            <intent-filter>\n                <action android:name=\"android.service.notification.NotificationListenerService\"/>\n                <action android:name=\"com.creative.logic.sbxapplogic.BIND_RC_CONTROL_SERVICE\"/>"
+         "<service android:exported=\"false\" android:label=\"@string/app_name\" android:name=\"com.creative.logic.sbxapplogic.LocalMusicRemoteControllerService\">\n            <intent-filter>\n                <action android:name=\"com.creative.logic.sbxapplogic.BIND_RC_CONTROL_SERVICE\"/>"
+         1)
+# The bundled Google app-invite preview activity is exported with a filter,
+# and no first-party code uses app invites. Not exported.
+_sbc_sub("${mf}"
+         "<activity android:exported=\"true\" android:name=\"com.google.android.gms.appinvite.PreviewActivity\""
+         "<activity android:exported=\"false\" android:name=\"com.google.android.gms.appinvite.PreviewActivity\""
          1)
 _sbc_sub("${mf}"
          "android:name=\"android.support.v4.media.session.MediaButtonReceiver\""
@@ -222,19 +245,41 @@ _sbc_sub("${mf}"
 _sbc_sub("${mf}" "<uses-permission android:name=\"android.permission.BLUETOOTH\"/>"
          "<uses-permission android:name=\"android.permission.BLUETOOTH\" android:maxSdkVersion=\"30\"/>"
          1)
+# BLUETOOTH_SCAN carries neverForLocation: the app derives no physical
+# location from Bluetooth scan results. Discovered devices fill the device
+# list and the connection; the only Bluetooth-derived value found leaving the
+# device is the connected model name as an analytics event label
+# (docs/research/android/PERMISSION_LIFECYCLE.md). With the flag, discovery on
+# API 31+ needs no location grant, and the platform withholds beacon-type
+# results from the app. ACCESS_FINE_LOCATION stays for Wi-Fi speaker setup
+# (Wi-Fi scan results and the current network) and for Bluetooth discovery
+# on API 23 to 30, where the platform requires it.
 _sbc_sub("${mf}"
          "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>"
-         "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\" android:maxSdkVersion=\"30\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>\n    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK\"/>"
+         "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\" android:maxSdkVersion=\"30\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\" android:usesPermissionFlags=\"neverForLocation\"/>\n    <uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>\n    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\"/>\n    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE\"/>"
          1)
-# Note: android:usesPermissionFlags="neverForLocation" on BLUETOOTH_SCAN is
-# omitted. apktool's pinned framework (api 23 attr table) predates that API-31
-# attribute, so aapt2 rejects it. The app declares ACCESS_FINE_LOCATION, so
-# scanning works with location granted; neverForLocation would only let the
-# app skip the location grant, which is not required.
+
+# --- stock permissions with no first-party use -----------------------------
+#   MEDIA_CONTENT_CONTROL   signature|privileged; never granted to this app.
+#   SYSTEM_ALERT_WINDOW     no overlay window is created.
+#   c2dm RECEIVE            no first-party code registers for GCM messages.
+#   WRITE_EXTERNAL_STORAGE  no first-party code writes shared storage; on
+#                           API 33+ the platform no longer grants it.
+foreach(perm "android.permission.MEDIA_CONTENT_CONTROL"
+             "android.permission.SYSTEM_ALERT_WINDOW"
+             "com.google.android.c2dm.permission.RECEIVE"
+             "android.permission.WRITE_EXTERNAL_STORAGE")
+    _sbc_sub("${mf}" "    <uses-permission android:name=\"${perm}\"/>\n" "" 1)
+endforeach()
 
 # --- >=34: MainService foreground service type -----------------------------
+# connectedDevice: the service holds the link to the speaker (the SPP
+# session and its media session); it plays no audio. Its prerequisite is met
+# by the normal CHANGE_NETWORK_STATE and NFC permissions, so the service can
+# start before the Nearby devices grant, and the type may start from
+# BOOT_COMPLETED on API 35+, where mediaPlayback may not.
 _sbc_sub("${mf}" "android:name=\"com.creative.apps.sbconnect.MainService\">"
-         "android:foregroundServiceType=\"mediaPlayback\" android:name=\"com.creative.apps.sbconnect.MainService\">"
+         "android:foregroundServiceType=\"connectedDevice\" android:name=\"com.creative.apps.sbconnect.MainService\">"
          1)
 
 # --- >=28: classpath libraries removed from the default bootclasspath ------
@@ -392,70 +437,170 @@ _sbc_receiver_export_tree(96)
 message(STATUS "modernize: registerReceiver export shim wired (96 sites, whole smali tree)")
 
 # ---------------------------------------------------------------------------
-# >=31 Nearby Devices runtime permission request flow, for the
-# BLUETOOTH_SCAN/CONNECT and POST_NOTIFICATIONS manifest declarations above.
-# The stock app predates the API 31 Bluetooth permission split and never
-# requests them, so on 31+ the runtime permissions stay denied and every
-# Bluetooth call throws SecurityException. BtPermCompat (modernize overlay)
-# requests BLUETOOTH_CONNECT and BLUETOOTH_SCAN (the connect and discovery
-# paths use both), resumes the normal init path via Activity.recreate() on
-# grant, and gates the connection manager's discovery (startDiscovery) and
-# bonded-enumeration (getBondedDevices) entry points so they no-op instead of
-# throwing until the grant lands. Below 31 the legacy install-time permissions
-# apply and the shim is inert.
+# Runtime-permission lifecycle (PermissionLifecycle, compiled from
+# patches/modernize/java/). docs/research/android/PERMISSION_LIFECYCLE.md has
+# the inventory this wiring follows.
 #
-# The requests are chained off each preceding result rather than fired together
-# from onCreate: onCreate's D() already calls requestPermissions (code 0x457) for
-# the stock runtime permissions (camera/mic/location), and Android drops a second
-# requestPermissions while a dialog sequence is still pending. onResult
-# therefore walks a sequential chain, each link firing when the previous result
-# returns:
-#   0x457 (stock) -> ensure() requests BLUETOOTH_CONNECT/SCAN (0x42c)
-#   0x42c (BT)    -> askNotif() requests POST_NOTIFICATIONS (0x42d, API 33+)
-#   0x42d (notif) -> resume() recreates on BT grant
-# so the dialogs appear back to back (location/mic, Nearby devices, notifications).
-# POST_NOTIFICATIONS is declared in the manifest block above; without the
-# runtime request it stays denied and the app cannot post its foreground-service or
-# media notifications. D()'s request is unconditional, so the chain fires on every
-# launch and is a no-op once the grants are held.
+#   * SbxApplication.onCreate: PermissionLifecycle.init(context).
+#   * MainActivity.onCreate: the stock request batch D() (camera, storage,
+#     microphone, location, on every creation) is replaced by onLaunch, which
+#     asks once per install for Nearby devices (API 31+) or location (API 23
+#     to 30, required there for Bluetooth discovery), then notifications
+#     (API 33+), and never on a recreated activity.
+#   * MainActivity.onRequestPermissionsResult: every result goes to onResult.
+#   * MainActivity.onResume: onResume recreates the activity once when
+#     Nearby devices was granted after creation (dialog or system settings).
+#   * Feature prompts: tapping a device in the Connect list (Nearby devices),
+#     opening room calibration (microphone) and opening Wi-Fi speaker setup
+#     (location). Each explains first and offers the request, or system
+#     settings once the system no longer shows its dialog.
+#   * Entry gates on the Bluetooth utility and connection-manager methods:
+#     without the grant they return their "no device" value (null, false or
+#     nothing) instead of calling the platform.
 # ---------------------------------------------------------------------------
+set(pl "Lcom/creative/apps/sbconnect/PermissionLifecycle;")
 set(ma "${TREE}/smali/com/creative/apps/sbconnect/MainActivity.smali")
 set(cm "${TREE}/smali/com/creative/logic/sbxapplogic/SbxConnectionManager.smali")
+set(bu "${TREE}/smali/com/creative/logic/sbxapplogic/BluetoothUtils.smali")
 
-# chain the BT request off the stock permission result, and resume the normal init
-# path on grant: hand every permission result to BtPermCompat after super.
+# Insert a gate at the entry of <method> (its full .method line) in <path>,
+# right after ".locals <n>" and before any monitor-enter. <check> is a
+# PermissionLifecycle predicate (btOk, scanOk, headsetConnectOk); <ret> is
+# the value returned when it fails: void, false or null. Uses v0, so <n> >= 1.
+function(_sbc_gate path method n check ret)
+    if(n LESS 1)
+        message(FATAL_ERROR "modernize: gate needs a local register: ${method}")
+    endif()
+    if(ret STREQUAL "void")
+        set(r "return-void")
+    elseif(ret STREQUAL "false")
+        set(r "const/4 v0, 0x0\n\n    return v0")
+    elseif(ret STREQUAL "null")
+        set(r "const/4 v0, 0x0\n\n    return-object v0")
+    else()
+        message(FATAL_ERROR "modernize: unknown gate return '${ret}'")
+    endif()
+    _sbc_sub("${path}" "${method}\n    .locals ${n}\n"
+             "${method}\n    .locals ${n}\n\n    invoke-static {}, ${pl}->${check}()Z\n\n    move-result v0\n\n    if-nez v0, :sbc_gate_ok\n\n    ${r}\n\n    :sbc_gate_ok\n"
+             1)
+endfunction()
+
+# --- application and activity lifecycle ------------------------------------
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/SbxApplication.smali"
+         "invoke-super {p0}, Landroid/support/multidex/MultiDexApplication;->onCreate()V"
+         "invoke-super {p0}, Landroid/support/multidex/MultiDexApplication;->onCreate()V\n\n    invoke-static {p0}, ${pl}->init(Landroid/content/Context;)V"
+         1)
+_sbc_sub("${ma}"
+         "invoke-direct {p0}, Lcom/creative/apps/sbconnect/MainActivity;->D()V"
+         "invoke-static {p0, p1}, ${pl}->onLaunch(Landroid/app/Activity;Landroid/os/Bundle;)V"
+         1)
 _sbc_sub("${ma}"
          "invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V"
-         "invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V\n\n    invoke-static {p0, p1, p2, p3}, Lcom/creative/apps/sbconnect/BtPermCompat;->onResult(Landroid/app/Activity;I[Ljava/lang/String;[I)V"
+         "invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V\n\n    invoke-static {p0, p1, p2, p3}, ${pl}->onResult(Landroid/app/Activity;I[Ljava/lang/String;[I)V"
+         1)
+_sbc_sub("${ma}"
+         ".method protected onResume()V\n    .locals 7\n"
+         ".method protected onResume()V\n    .locals 7\n\n    invoke-static {p0}, ${pl}->onResume(Landroid/app/Activity;)V\n"
          1)
 
-# gate discovery (startDiscovery, BLUETOOTH_SCAN) before the method monitor.
-_sbc_sub("${cm}"
-         ".method public declared-synchronized a()V\n    .locals 3\n\n    monitor-enter p0"
-         ".method public declared-synchronized a()V\n    .locals 3\n\n    iget-object v0, p0, Lcom/creative/logic/sbxapplogic/SbxConnectionManager;->j:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/creative/apps/sbconnect/BtPermCompat;->ok(Landroid/content/Context;)Z\n\n    move-result v0\n\n    if-nez v0, :sbc_bt_gate\n\n    return-void\n\n    :sbc_bt_gate\n    monitor-enter p0"
+# --- feature prompts ---------------------------------------------------------
+# Connect list, Bluetooth partition (0): explain and stop when Nearby devices
+# is missing. v0 is reloaded by the stock code right after.
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/ConnectionFragment.smali"
+         "    if-nez v0, :cond_6\n\n    :try_start_0\n    iget-object v0, p0, Lcom/creative/apps/sbconnect/ConnectionFragment;->k:Ljava/util/ArrayList;"
+         "    if-nez v0, :cond_6\n\n    invoke-virtual {p0}, Landroid/support/v4/app/Fragment;->getActivity()Landroid/support/v4/app/FragmentActivity;\n\n    move-result-object v0\n\n    invoke-static {v0}, ${pl}->requireBluetooth(Landroid/app/Activity;)Z\n\n    move-result v0\n\n    if-nez v0, :sbc_bt_ok\n\n    return-void\n\n    :sbc_bt_ok\n    :try_start_0\n    iget-object v0, p0, Lcom/creative/apps/sbconnect/ConnectionFragment;->k:Ljava/util/ArrayList;"
+         1)
+# Connect screen, room calibration and Wi-Fi speaker setup: at the entry of
+# onResume. With Nearby devices denied the connect screen's list is empty, so
+# its tap check above is unreachable; opening the screen offers the retry.
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/ConnectionFragment.smali"
+         ".method public onResume()V\n    .locals 10\n"
+         ".method public onResume()V\n    .locals 10\n\n    invoke-virtual {p0}, Landroid/support/v4/app/Fragment;->getActivity()Landroid/support/v4/app/FragmentActivity;\n\n    move-result-object v0\n\n    invoke-static {p0, v0}, ${pl}->requireBluetoothScreen(Ljava/lang/Object;Landroid/app/Activity;)V\n"
+         1)
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/CalibrationFragment.smali"
+         ".method public onResume()V\n    .locals 2\n"
+         ".method public onResume()V\n    .locals 2\n\n    invoke-virtual {p0}, Landroid/support/v4/app/Fragment;->getActivity()Landroid/support/v4/app/FragmentActivity;\n\n    move-result-object v0\n\n    invoke-static {p0, v0}, ${pl}->requireMicrophone(Ljava/lang/Object;Landroid/app/Activity;)V\n"
+         1)
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/WifiSetupFragment.smali"
+         ".method public onResume()V\n    .locals 5\n"
+         ".method public onResume()V\n    .locals 5\n\n    invoke-virtual {p0}, Landroid/support/v4/app/Fragment;->getActivity()Landroid/support/v4/app/FragmentActivity;\n\n    move-result-object v0\n\n    invoke-static {p0, v0}, ${pl}->requireLocation(Ljava/lang/Object;Landroid/app/Activity;)V\n"
+         1)
+# Add-speaker button: the stock BluetoothAdapter.enable() runs only with the
+# grant and below API 33; the button then opens system Bluetooth settings as
+# before, where pairing needs no app permission.
+_sbc_sub("${TREE}/smali/com/creative/apps/sbconnect/AddBluetoothSpeakerFragment\$3.smali"
+         "invoke-virtual {v0}, Landroid/bluetooth/BluetoothAdapter;->enable()Z"
+         "invoke-static {v0}, ${pl}->enableAdapter(Landroid/bluetooth/BluetoothAdapter;)Z"
          1)
 
-# gate bonded-device enumeration (getBondedDevices, BLUETOOTH_CONNECT) at the top.
-_sbc_sub("${cm}"
-         ".method public f()V\n    .locals 5\n\n    :try_start_0"
-         ".method public f()V\n    .locals 5\n\n    iget-object v0, p0, Lcom/creative/logic/sbxapplogic/SbxConnectionManager;->j:Landroid/content/Context;\n\n    invoke-static {v0}, Lcom/creative/apps/sbconnect/BtPermCompat;->ok(Landroid/content/Context;)Z\n\n    move-result v0\n\n    if-nez v0, :sbc_bt_gate\n\n    return-void\n\n    :sbc_bt_gate\n    :try_start_0"
+# --- entry gates ---------------------------------------------------------------
+# BluetoothUtils (static). Profile-proxy setup a(Context), isEnabled a() and
+# the proxy checks b()/c() need no runtime permission and stay ungated.
+set(bd "Landroid/bluetooth/BluetoothDevice;")
+_sbc_gate("${bu}" ".method public static declared-synchronized a(Ljava/lang/String;)${bd}" 6 btOk null)
+_sbc_gate("${bu}" ".method public static declared-synchronized b(Landroid/content/Context;)${bd}" 7 btOk null)
+_sbc_gate("${bu}" ".method public static declared-synchronized b(${bd})V" 4 btOk void)
+_sbc_gate("${bu}" ".method public static declared-synchronized c(Landroid/content/Context;)${bd}" 7 btOk null)
+_sbc_gate("${bu}" ".method public static declared-synchronized c(${bd})V" 6 btOk void)
+_sbc_gate("${bu}" ".method public static declared-synchronized d(${bd})V" 6 btOk void)
+_sbc_gate("${bu}" ".method public static declared-synchronized f(${bd})V" 6 btOk void)
+_sbc_gate("${bu}" ".method public static declared-synchronized g(${bd})Z" 4 btOk false)
+# e(device): BluetoothHeadset.connect by reflection. On API 31+ the platform
+# requires MODIFY_PHONE_STATE, which only privileged apps hold; the call
+# threw SecurityException on every connect (PERMISSION_FINDINGS.md, PF7).
+_sbc_gate("${bu}" ".method public static declared-synchronized e(${bd})V" 6 headsetConnectOk void)
+# a(device): the device name. Stock tries the hidden getAliasName first, which
+# API 30+ does not have (NoSuchMethodException, PF7); there the public
+# getAlias() replaces the whole lookup.
+_sbc_sub("${bu}"
+         ".method public static declared-synchronized a(${bd})Ljava/lang/String;\n    .locals 6\n"
+         ".method public static declared-synchronized a(${bd})Ljava/lang/String;\n    .locals 6\n\n    invoke-static {}, ${pl}->btOk()Z\n\n    move-result v0\n\n    if-nez v0, :sbc_gate_ok\n\n    const/4 v0, 0x0\n\n    return-object v0\n\n    :sbc_gate_ok\n    invoke-static {}, ${pl}->publicAlias()Z\n\n    move-result v0\n\n    if-eqz v0, :sbc_stock_alias\n\n    invoke-static {p0}, ${pl}->alias(${bd})Ljava/lang/String;\n\n    move-result-object v0\n\n    return-object v0\n\n    :sbc_stock_alias\n"
          1)
 
-message(STATUS "modernize: runtime permission chain wired (BtPermCompat: stock -> Nearby Devices -> notifications, + discovery/bonded gates)")
+# SbxConnectionManager: discovery start/cancel need BLUETOOTH_SCAN as well.
+_sbc_gate("${cm}" ".method public declared-synchronized a()V" 3 scanOk void)
+_sbc_gate("${cm}" ".method public declared-synchronized b()V" 2 scanOk void)
+_sbc_gate("${cm}" ".method public a(${bd})Z" 2 btOk false)
+_sbc_gate("${cm}" ".method public declared-synchronized b(${bd})V" 2 btOk void)
+_sbc_gate("${cm}" ".method public declared-synchronized c(${bd})V" 2 btOk void)
+_sbc_gate("${cm}" ".method public f()V" 5 btOk void)
+# c(): Wi-Fi discovery of speakers in setup mode (their access points). Wi-Fi
+# scans need precise location, which the connect screen does not request.
+_sbc_gate("${cm}" ".method public declared-synchronized c()V" 3 wifiScanOk void)
+
+# BLE scan start.
+_sbc_gate("${TREE}/smali/com/creative/logic/sbxapplogic/BluetoothLE/BLEManager.smali"
+          ".method private e()Z" 6 scanOk false)
+
+# --- explanation strings (English) ----------------------------------------------
+_sbc_sub("${TREE}/res/values/strings.xml" "</resources>"
+         "    <string name=\"sbc_perm_allow\">Allow</string>
+    <string name=\"sbc_perm_not_now\">Not now</string>
+    <string name=\"sbc_perm_open_settings\">Open settings</string>
+    <string name=\"sbc_perm_bluetooth_title\">Nearby devices</string>
+    <string name=\"sbc_perm_bluetooth_message\">Finding and controlling a Sound Blaster device uses Bluetooth, which needs the Nearby devices permission. Without it the app opens, but cannot connect to a device.</string>
+    <string name=\"sbc_perm_bluetooth_denied\">Nearby devices is not allowed. Connecting to a device is unavailable.</string>
+    <string name=\"sbc_perm_microphone_title\">Microphone</string>
+    <string name=\"sbc_perm_microphone_message\">Room calibration measures test tones through the microphone. No other feature uses it.</string>
+    <string name=\"sbc_perm_microphone_denied\">Microphone is not allowed. Room calibration is unavailable.</string>
+    <string name=\"sbc_perm_location_title\">Location</string>
+    <string name=\"sbc_perm_location_message\">Wi-Fi speaker setup lists nearby Wi-Fi networks, which Android provides only with location access.</string>
+    <string name=\"sbc_perm_location_denied\">Location is not allowed. Wi-Fi speaker setup cannot list networks.</string>
+    <string name=\"sbc_perm_location_discovery_message\">On this Android version, finding Bluetooth devices that are not yet paired needs location access. Paired devices are listed without it.</string>
+    <string name=\"sbc_perm_location_denied_legacy\">Location is not allowed. Finding unpaired devices and Wi-Fi speaker setup are unavailable.</string>
+</resources>"
+         1)
+
+message(STATUS "modernize: permission lifecycle wired (PermissionLifecycle: launch sequence, feature prompts, 18 entry gates)")
 
 # ---------------------------------------------------------------------------
 # Notification-listener access prompt: suppressed. MainActivity.v() prompts
-# (MainActivity.w) for notification-listener access to feed the playback-metadata
-# feature (LocalMusicRemoteControllerService), which drives the removed
-# android.media.RemoteController API and is inert on modern Android. The grant is
-# a system-level "read all notifications" permission that enables no working
-# feature here. The system settings pane cannot be reduced to a single focused
-# toggle on every OEM skin, and API 34+ background-activity-launch rules forbid a
-# listener service from bringing an activity to the foreground to return the user
-# to the app. The call to w() is removed so the dialog is never shown; the
-# Bluetooth/notification runtime-permission chain above is unaffected.
+# (MainActivity.w) for notification-listener access, which fed the Now Playing
+# metadata of other players through LocalMusicRemoteControllerService and the
+# deprecated android.media.RemoteController. The service is no longer declared
+# as a notification listener (manifest block above), so the access could not
+# be granted; the call to w() is removed so the prompt is never shown.
 # ---------------------------------------------------------------------------
-set(ma "${TREE}/smali/com/creative/apps/sbconnect/MainActivity.smali")
 
 # v(): keep the accessibility check/logging, drop the w() prompt invocation.
 _sbc_sub("${ma}"
@@ -463,4 +608,4 @@ _sbc_sub("${ma}"
          "    if-nez v0, :cond_0\n\n    goto :goto_0"
          1)
 
-message(STATUS "modernize: notification-listener access prompt suppressed (inert RemoteController feature)")
+message(STATUS "modernize: notification-listener access prompt removed")

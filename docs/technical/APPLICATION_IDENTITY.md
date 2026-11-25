@@ -23,7 +23,7 @@ document and the build files disagree, the build files are correct.
 | Field | Stock, `resign`, `modernize`, `arm64` | `compat` |
 |---|---|---|
 | Application ID (`package`) | `com.creative.apps.sbconnect` | `io.github.asce1062.sbconnect.compat` |
-| Label (application, launcher, notification listener) | `@string/app_name`, `@string/launcher_name` (Sound Blaster Connect) | `SB Connect Compat` |
+| Label (application, launcher, `LocalMusicRemoteControllerService`) | `@string/app_name`, `@string/launcher_name` (Sound Blaster Connect) | `SB Connect Compat` |
 | versionName | `1.04.02` | `1.04.02-compat.0.1.0` |
 | versionCode | `10402` | `1000` |
 | Measurement provider authority | `com.creative.apps.sbconnect.google_measurement_service` | `io.github.asce1062.sbconnect.compat.google_measurement_service` |
@@ -114,15 +114,16 @@ system never compares them. Configure writes the values to
 
 - **Coexistence.** `compat` and the stock app (or any stock-identity variant)
   are different packages. Both can be installed at once, each with its own
-  data, permissions and notification-listener grant.
+  data and permission grants.
 - **No data carry-over.** Settings, presets and paired-device state of a stock
   install do not appear in `compat`. Bluetooth pairing is held by the system
   and is shared.
 - **Updates.** A later `compat` release installs over an earlier one only when
   both are signed with the same key. Debug-signed builds from different
   machines carry different keys.
-- **Notification listener.** The listener service is listed under the
-  `SB Connect Compat` label in system settings and needs its own grant.
+- **Permissions.** Each package asks for and holds its own runtime
+  permissions. The `modernize` patch removes the notification listener, so
+  neither identity appears in the notification-access settings.
 
 ## Verification
 
@@ -133,16 +134,16 @@ system never compares them. Configure writes the values to
 | Stock-identity variants | `arm64` still reports `com.creative.apps.sbconnect`, 10402, Sound Blaster Connect | **Artifact** |
 | Side-by-side install | `arm64` (stock identity) and `compat` install together; `pm` lists both packages, and both measurement provider authorities are registered | **Emulator** |
 | Installed metadata | `compat`: versionCode 1000, versionName `1.04.02-compat.0.1.0`, targetSdk 34. `arm64`: 10402, `1.04.02`, targetSdk 34 | **Emulator** |
-| Launch | `compat` starts from the launcher, shows the runtime permission request (location, storage, microphone at API 30), and after the grants shows the `MainActivity` dashboard. The Connect to Device screen starts Bluetooth discovery. Logcat has no `FATAL EXCEPTION`, `UnsatisfiedLinkError` or `dlopen` failure. `arm64` launches with `compat` installed | **Emulator** |
+| Launch | `compat` starts from the launcher, shows the runtime permission request (location, storage, microphone at API 30; location only since the permission lifecycle), and after the grants shows the `MainActivity` dashboard. The Connect to Device screen starts Bluetooth discovery. Logcat has no `FATAL EXCEPTION`, `UnsatisfiedLinkError` or `dlopen` failure. `arm64` launches with `compat` installed | **Emulator** |
 | Component exports | From the shell uid, `am startservice` of `MainService` and explicit broadcasts to `MainReceiver` and `android.support.v4.media.session.MediaButtonReceiver` of `compat` are refused as not exported. `MediaButtonReceiver` of `arm64` is refused the same way | **Emulator** |
 | Native library load without a speaker | Not reached. `sbxapplogic_ctprotocol_jni` and `serialport_jni` load in the static initializers of `SbxSppCommandManager` and `SerialPort`, which run only when a device connects; without a Katana neither library is mapped into the process | **Emulator** |
 | Side-by-side install next to the `arm64` build, on a phone that has that build installed | Both packages listed, launcher activities resolved, no provider conflict. The `arm64` install's metadata and data (its presets, its recent music) are unchanged after the run | **Device** |
 | Native library load | `compat` runs under `zygote64` with ABI `arm64-v8a`. `sbxapplogic_ctprotocol_jni` loads from `lib/arm64` and the CtProtocol session starts after SPP connects. `serialport_jni` does not load (not used on the Bluetooth path). 4 KiB-page kernel | **Device** |
 | Katana | Discovery, SPP, device name, presets, sources, Now Playing. The master volume write is heard on the speaker and read back by the `arm64` app | **Device** |
-| Nearby Devices permission flow (API 37) | Requested on first launch. Discovery and connection follow the grant. Findings: a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices`, a repeated microphone request, and a location request | **Device** |
+| Nearby Devices permission flow (API 37) | Requested on first launch. Discovery and connection follow the grant. Findings: a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices`, a repeated microphone request, and a location request. Superseded by the permission lifecycle ([ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md) row 11): on a Pixel 8 at API 37 the launch asks for Nearby devices and notifications only, once, with no pre-grant `SecurityException` | **Device** |
 | Component exports | From the shell uid, `MainReceiver` and `MediaButtonReceiver` broadcasts are not delivered and `MainService` is refused as not exported. The foreground service starts from the app itself after SPP connects | **Device** |
 | Boot | `BOOT_COMPLETED` reaches `MainReceiver` of `compat` and of the `arm64` install; each starts its process and `MainService` | **Device** |
-| Play Protect, user route | A debug-signed `compat` opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds | **Device** (fail) |
+| Play Protect, user route | A debug-signed `compat` with the stock permission set opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds and does not qualify the user route. The build with the reduced permission set has not been through the user route | **Device** (fail) |
 
 Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md).
 The Play Protect block on the user route is the open distribution issue. The

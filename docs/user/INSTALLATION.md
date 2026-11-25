@@ -45,8 +45,11 @@ Blaster devices that the stock app supports may work but have not been tried.
 
    Or copy the APK to the phone and open it; Android asks you to allow
    installs from the app you opened it with.
-3. Google Play Protect may warn about an app from an unknown developer or scan
-   it before installing. That warning is expected for a self-built app;
+3. Google Play Protect may warn about an app from an unknown developer, scan
+   it, or block it. A debug-signed build with the stock permission set was
+   blocked when opened from the file manager on a Galaxy S24 Ultra, with no
+   option to install anyway. The current build, with fewer permissions, has
+   not been tried that way yet. Do not turn off Play Protect to install it;
    [PERMISSIONS.md](../technical/PERMISSIONS.md) records the behavior observed
    on the test phones.
 
@@ -56,22 +59,37 @@ first.
 
 ## First launch
 
-On Android 12 and later the `modernize`, `arm64` and `compat` builds ask, in
-order:
+The `modernize`, `arm64` and `compat` builds ask once, on the first launch
+after installing:
 
-1. the stock app's own requests (location and microphone);
-2. **Nearby devices**, needed to find and connect to the speaker over
-   Bluetooth;
-3. **Notifications** (Android 13 and later), for the app's status
-   notification.
+1. **Nearby devices** (Android 12 and later), needed to find and connect to
+   the speaker over Bluetooth. On Android 6 to 11 they ask for **location**
+   instead, which those versions require for finding Bluetooth devices that
+   are not paired yet;
+2. **Notifications** (Android 13 and later), for the app's status
+   notification. Declining it does not affect the speaker connection.
 
-Without Nearby devices the app cannot see the speaker. If you declined it,
-grant it in Settings, Apps, Sound Blaster Connect (SB Connect Compat for the
-`compat` build), Permissions.
+Later launches do not ask again. Other permissions are asked for only when you
+open the feature that needs them, with a short explanation first:
 
-The app's "now playing" feature, which relied on notification access through
-an API that current Android no longer supports, does not work, and the app no
-longer asks for notification access.
+| Feature | Permission |
+|---|---|
+| Connect to Device screen, tapping a speaker | Nearby devices (Android 12+); location (Android 6 to 11) |
+| Room calibration | Microphone |
+| Wi-Fi speaker setup | Location (precise) |
+
+Speaker control, presets and volume do not need the microphone or location.
+
+If you decline a permission, the app keeps working offline and shows the
+explanation again the next time you open that feature, with **Allow** to ask
+again. After a second refusal Android stops showing its dialog; the
+explanation then offers **Open settings**, which opens the app's page in
+Settings. You can also grant it in Settings, Apps, Sound Blaster Connect
+(SB Connect Compat for the `compat` build), Permissions.
+
+The app's "now playing" feature relied on notification access through a
+deprecated API. It does not work, and the app does not ask for notification
+access.
 
 ## Troubleshooting
 
@@ -79,7 +97,8 @@ longer asks for notification access.
 |---|---|
 | `INSTALL_FAILED_NO_MATCHING_ABIS` | 64-bit-only phone with a `resign` or `modernize` build. Use `compat` or `arm64`. |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` or "App not installed" | A copy signed with another key is installed (the stock app or another build). Uninstall it first. |
-| Speaker not found | Nearby devices permission not granted, or Bluetooth off. |
+| Speaker not found, Connect to Device screen empty | Nearby devices permission not granted (open the screen again and choose Allow or Open settings), or Bluetooth off. |
+| A new, unpaired speaker is not found on Android 6 to 11 | Location not granted. Pair the speaker in the system Bluetooth settings, or allow location. |
 
 Known limits of these builds are listed in
 [ANDROID_COMPATIBILITY.md](../technical/ANDROID_COMPATIBILITY.md#not-addressed-and-limits).

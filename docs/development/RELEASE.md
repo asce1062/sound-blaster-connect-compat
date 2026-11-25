@@ -18,9 +18,14 @@ may be distributed.
 | production key | not created |
 | published certificate fingerprint | none |
 | release CI | interface defined below; no workflow, no remote secrets |
+| user install route (file manager, system installer, Play Protect on) | not qualified: blocked for the build with the stock permission set; the current build is untested on that route ([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)) |
 
 A release cannot be produced until the production key exists, is backed up
-and its fingerprint is published.
+and its fingerprint is published. A release is not published until the user
+install route passes with the release-signed APK on at least one current
+device with Play Protect on. An `adb install` does not qualify it. If Play
+Protect blocks it, the appeal draft is
+[PLAY_PROTECT_REVIEW.md](PLAY_PROTECT_REVIEW.md).
 
 ## Once: create the release key
 
@@ -79,7 +84,9 @@ Only after step 6 is the release process below usable.
    that `<apk>.json` shows the expected `version_code`, `version_name`,
    `certificate_sha256` and a `source_commit` equal to the commit being
    released with `source_uncommitted_changes` false.
-5. Install it as an update over the previous release on a test device.
+5. Install it as an update over the previous release on a test device, and
+   install it fresh through the user route (open the APK from the file
+   manager) on a device with Play Protect on.
 6. Tag the commit with the release tag (`v<VERSION>`) and publish the APK,
    its `.sha256` and its `.json`, unchanged. Any byte change after signing
    invalidates the signature; re-run the target instead of editing an

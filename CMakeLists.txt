@@ -90,6 +90,9 @@ set(decompiled_dir
 
 set(tools_dir "${CMAKE_CURRENT_BINARY_DIR}/tools")
 set(apktool_jar "${tools_dir}/apktool_${apktool_version}.jar")
+# apktool's framework directory (-p). Build-local, so decode and build use the
+# framework bundled in the pinned apktool jar, never a per-user cache.
+set(apktool_framework_dir "${CMAKE_CURRENT_BINARY_DIR}/apktool-framework")
 set(signer_jar "${tools_dir}/uber-apk-signer-${uber_signer_version}.jar")
 set(apply_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_patch.cmake")
 set(deploy_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_apk.cmake")
@@ -218,10 +221,10 @@ add_custom_command(
     COMMAND "${CMAKE_COMMAND}" -E rm -rf "${decompiled_dir}"
     COMMAND
         "${CMAKE_COMMAND}" -E echo
-        "+ ${java_bin} -jar ${apktool_jar} d ${apk_input} -o ${decompiled_dir} -f --jobs ${apktool_jobs}"
+        "+ ${java_bin} -jar ${apktool_jar} d ${apk_input} -o ${decompiled_dir} -f -p ${apktool_framework_dir} --jobs ${apktool_jobs}"
     COMMAND
         "${java_bin}" -jar "${apktool_jar}" d "${apk_input}" -o
-        "${decompiled_dir}" -f --jobs "${apktool_jobs}"
+        "${decompiled_dir}" -f -p "${apktool_framework_dir}" --jobs "${apktool_jobs}"
     COMMAND "${CMAKE_COMMAND}" -E touch "${stamp_decompiled}"
     DEPENDS "${apk_input}" "${apktool_jar}"
     COMMENT "decode => decompiled/ (apktool d)"

@@ -21,14 +21,22 @@
 #   overlay/      a file tree copied verbatim onto the staged tree (its paths
 #                 mirror the decoded layout: AndroidManifest.xml, res/...,
 #                 smali/..., lib/<abi>/...).
+#   java/         Java sources compiled to smali at build time
+#                 (sbc_java.cmake) and copied onto the tree's smali/ after the
+#                 overlay.
 #   patch.cmake   CMake run with ${TREE} set to the staged tree, for edits
 #                 that are not whole-file replacements (bump a value in
 #                 apktool.yml, rewrite a smali line, inject a manifest attr).
 #
 # Patches apply in the order listed, so a later patch can build on an earlier
 # one (e.g. arm64 layered on modernize).
+#
+# apktool runs with -p ${apktool_framework_dir}, a build-local framework
+# directory, so the framework it links against is the one bundled in the
+# pinned apktool jar and not a per-user cache.
 
 include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/sbc_java.cmake")
 
 function(sbc_add_variant name)
     cmake_parse_arguments(V "" "NATIVE_LIB_DIR;PACKAGE" "PATCHES;NATIVE_LIBS;DEFINES" ${ARGN})
@@ -54,6 +62,10 @@ function(sbc_add_variant name)
             LIST_DIRECTORIES FALSE
             "${PROJECT_SOURCE_DIR}/patches/${p}/*")
         list(APPEND payload_deps ${pl})
+        if(IS_DIRECTORY "${PROJECT_SOURCE_DIR}/patches/${p}/java")
+            sbc_java_smali(${p} java_stamp)
+            list(APPEND payload_deps "${java_stamp}")
+        endif()
         if(patch_csv STREQUAL "")
             set(patch_csv "${p}")
         else()
@@ -78,12 +90,12 @@ function(sbc_add_variant name)
             "${CMAKE_COMMAND}" "-DTREE=${tree}"
             "-DPATCHES_ROOT=${PROJECT_SOURCE_DIR}/patches"
             "-DPATCHES=${patch_csv}" "-DSBC_NATIVE_LIB_DIR=${V_NATIVE_LIB_DIR}"
-            ${define_args} -P "${apply_script}"
+            "-DSBC_JAVA_ROOT=${sbc_java_out}" ${define_args} -P "${apply_script}"
         COMMAND
             "${CMAKE_COMMAND}" -E echo
-            "+ ${java_bin} -jar ${apktool_jar} b ${tree} -o ${unsigned} -f --jobs ${apktool_jobs}"
+            "+ ${java_bin} -jar ${apktool_jar} b ${tree} -o ${unsigned} -f -p ${apktool_framework_dir} --jobs ${apktool_jobs}"
         COMMAND "${java_bin}" -jar "${apktool_jar}" b "${tree}" -o "${unsigned}"
-                -f --jobs "${apktool_jobs}"
+                -f -p "${apktool_framework_dir}" --jobs "${apktool_jobs}"
         DEPENDS "${stamp_decompiled}"
                 ${decompiled_files}
                 ${payload_deps}
