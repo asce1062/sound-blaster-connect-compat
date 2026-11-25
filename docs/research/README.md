@@ -65,6 +65,7 @@ Classification: **Research** explains how behavior was recovered or decided;
 | [APP_IDENTITY.md](android/APP_IDENTITY.md) | Research | Package identity, version, SDK range and signing of the rebuilt APK against the stock APK. |
 | [PLAY_PROTECT_MATRIX.md](android/PLAY_PROTECT_MATRIX.md) | Validation | Observed Play Protect behavior toward the debug-signed build. |
 | [HARDWARE_VALIDATION.md](android/HARDWARE_VALIDATION.md) | Validation | `compat` on the Galaxy S24 Ultra (API 37) with the Katana, next to an `arm64` install: coexistence, permissions, arm64 runtime, read and write, exports, boot, Play Protect, regression. |
+| [PERMISSION_FINDINGS.md](android/PERMISSION_FINDINGS.md) | Research | Baseline of the permission and platform-API findings from the S24 run, observations kept apart from hypotheses. |
 | [RELEASE_SIGNING.md](android/RELEASE_SIGNING.md) | Validation | `test-release` and `release` signing of `compat` with disposable keys: positive and fail-closed controls, credential exposure, and the emulator update rehearsal. |
 
 ## Vocabulary
