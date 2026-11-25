@@ -15,6 +15,7 @@ document and the build files disagree, the build files are correct.
 | **Build** | Enforced by the build: an anchor count in `patches/identity/patch.cmake`, or a check in `cmake/sbc_version.cmake`. |
 | **Static** | Read from the decoded stock tree (`smali/`, `smali_classes2/`, the manifest, the native libraries). |
 | **Artifact** | Read from the built APK with `aapt2 dump badging` or by comparing archive entries. |
+| **Emulator** | Observed on the Android emulator: Pixel 3a AVD, Android 11 (API 30), x86 system image. It exercises the package manager, the activity manager and component export rules. It has no Katana, and it runs the x86 libraries, not `arm64-v8a`. |
 | **Device** | Observed on a device; see [Verification](#verification). |
 
 ## Identities
@@ -130,7 +131,12 @@ system never compares them. Configure writes the values to
 | Package, label, versions, launchable activity, targetSdk 34, native ABIs `arm64-v8a armeabi armeabi-v7a x86` | As in the table above | **Artifact** |
 | Staged-tree difference from `arm64` | Only `AndroidManifest.xml`, `apktool.yml` and `SbxDeviceManager.smali` at the two comparisons | **Artifact** |
 | Stock-identity variants | `arm64` still reports `com.creative.apps.sbconnect`, 10402, Sound Blaster Connect | **Artifact** |
-| Install, launch and native load on a device | See [ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md) | **Device** |
+| Side-by-side install | `arm64` (stock identity) and `compat` install together; `pm` lists both packages, and both measurement provider authorities are registered | **Emulator** |
+| Installed metadata | `compat`: versionCode 1000, versionName `1.04.02-compat.0.1.0`, targetSdk 34. `arm64`: 10402, `1.04.02`, targetSdk 34 | **Emulator** |
+| Launch | `compat` starts from the launcher, shows the runtime permission request (location, storage, microphone at API 30), and after the grants shows the `MainActivity` dashboard. The Connect to Device screen starts Bluetooth discovery. Logcat has no `FATAL EXCEPTION`, `UnsatisfiedLinkError` or `dlopen` failure. `arm64` launches with `compat` installed | **Emulator** |
+| Component exports | From the shell uid, `am startservice` of `MainService` and explicit broadcasts to `MainReceiver` and `android.support.v4.media.session.MediaButtonReceiver` of `compat` are refused as not exported. `MediaButtonReceiver` of `arm64` is refused the same way | **Emulator** |
+| Native library load | Not reached. `sbxapplogic_ctprotocol_jni` and `serialport_jni` load in the static initializers of `SbxSppCommandManager` and `SerialPort`, which run only when a device connects; without a Katana neither library is mapped into the process | Pending (**Device**) |
+| Katana discovery and SPP, live state and presets, Nearby Devices permission flow (API 31+), boot receiver and foreground service, Play Protect install result | Not yet run under the new ID | Pending (**Device**) |
 
 ## Sources
 

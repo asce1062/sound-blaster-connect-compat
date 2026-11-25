@@ -8,6 +8,7 @@ This document describes, per build variant, what the pipeline changes in the sto
 |---|---|
 | **Build** | Enforced by the build: an anchor or site count asserted in [patch.cmake](../../patches/modernize/patch.cmake), a configure check, or the `resign` payload comparison. A drift fails the variant build. |
 | **Device** | Observed on hardware, per [ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md) and the acceptance matrices in [RECEIVER_AUDIT.md](../research/android/RECEIVER_AUDIT.md). Raw runtime logs were not preserved; only the excerpts in [runtime/](../research/arm64/runtime/) exist. |
+| **Emulator** | Observed on the Android emulator (Pixel 3a AVD, API 30, x86 image). No Katana; the x86 libraries run, not `arm64-v8a`. |
 | **Static** | Read from code, the built manifest, or a recorded structural check (aapt2, apksigner). Not executed. |
 | **Expected** | Platform documentation or inference. Not observed in this project. |
 
@@ -110,7 +111,7 @@ Side effect (**Static**): at six sites the flags register is also the request-co
 | Variant definition | `sbc_add_variant(compat PATCHES modernize arm64 identity ... PACKAGE <app id> DEFINES ...)`; every `modernize` and `arm64` row applies | **Build** |
 | Identity | Package `io.github.asce1062.sbconnect.compat`, label `SB Connect Compat`, versionName `1.04.02-compat.0.1.0`, versionCode 1000, provider authority under the new package | **Build** (anchor counts), **Static** (aapt2 badging) |
 | Difference from `arm64` | 6 of 4312 archive entries: `AndroidManifest.xml`, `resources.arsc`, `classes.dex` and the three signature files. Staged tree: manifest, `apktool.yml`, two lines of `SbxDeviceManager.smali` | **Static** |
-| Coexistence | A separate package with its own data directory and a unique provider authority, so it installs next to the stock app or a stock-identity variant | **Expected** until the device run in [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md#verification) |
+| Coexistence | A separate package with its own data directory and a unique provider authority, so it installs next to the stock app or a stock-identity variant | **Emulator** (API 30 x86, next to `arm64`); hardware pending. Detail in [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md#verification) |
 
 Package-dependence audit and version scheme:
 [APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md).
