@@ -31,7 +31,7 @@ is diffed against output captured on the same AVD.
 
 ## 3. Oracle harness
 
-- Source: [`oracle/`](../../oracle/) - mirror class
+- Source: [`oracle/`](../../../oracle/) - mirror class
   `oracle/src/com/creative/logic/sbxapplogic/vendor/sbx/SbxSppCommandManager.java`
   (exact FQN so the lib's static `Java_...` exports bind and `JNI_OnLoad`
   resolves the callbacks), runner `oracle/run.sh`, docs `oracle/README.md`.
@@ -44,7 +44,7 @@ is diffed against output captured on the same AVD.
 
 ## 4. Encode-vector corpus
 
-- File: [`oracle/vectors/enc_stock.txt`](../../oracle/vectors/enc_stock.txt)
+- File: [`oracle/vectors/enc_stock.txt`](../../../oracle/vectors/enc_stock.txt)
 - Count: 97 vectors - 96 `ENC` (command frame) + 1 `INT`
   (`getFileTransferMaxDataSize` scalar getter).
 - 77 emit a frame / value; 20 `ENC` rows are empty-hex, which is the stock

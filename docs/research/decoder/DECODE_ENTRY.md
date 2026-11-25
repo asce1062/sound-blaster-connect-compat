@@ -5,7 +5,7 @@ x86 CtProtocol library's inbound path, captured against the behavioral oracle,
 not inferred from decompiler structure. Oracle `.so`:
 `lib/x86/libsbxapplogic_ctprotocol_jni.so`, 99672 bytes,
 SHA-256 `215a0bd15ef6f2dd9a5dca0a3c867824d9a61313b7a23cab8f6622779bee7f0e`
-(the canonical oracle, [CHECKPOINT.md](../CHECKPOINT.md#1-stock-x86-ctprotocol-library)).
+(the canonical oracle, [CHECKPOINT.md](../arm64/CHECKPOINT.md#1-stock-x86-ctprotocol-library)).
 Harness: `oracle/run.sh … dec|seq`, mirror
 `oracle/src/.../SbxSppCommandManager.java`, on AVD `Pixel_3a_API_30_x86` under
 `app_process32`.
@@ -75,7 +75,7 @@ full offset -> callback map is in
 and is all-or-nothing: it returns `-1` unless every `GetStaticMethodID` succeeds.
 The mirror class loads the stock `.so` without error, which proves all 28 callback
 names, JNI signatures, and the declaring class resolve exactly as frozen in
-[FREEZE.md](../FREEZE.md#inbound-callbacks-28-cached-static-methods-name---jni-signature).
+[FREEZE.md](../arm64/FREEZE.md#inbound-callbacks-28-cached-static-methods-name---jni-signature).
 
 ## Return value is not the accept/reject signal
 

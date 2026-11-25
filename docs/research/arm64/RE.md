@@ -109,7 +109,7 @@ File transfer (firmware / profile files):
 ## serialport library — DONE (arm64-v8a built)
 
 Decompiled `native_open` / `native_close` / `JNI_OnLoad` and rebuilt faithfully
-at [patches/arm64/native/serialport/serialport.c](../../patches/arm64/native/serialport/serialport.c);
+at [patches/arm64/native/serialport/serialport.c](../../../patches/arm64/native/serialport/serialport.c);
 arm64-v8a `.so` staged in `patches/arm64/overlay/lib/arm64-v8a/`.
 
 - Bound to `com.creative.serialport.SerialPort` via `RegisterNatives` in
