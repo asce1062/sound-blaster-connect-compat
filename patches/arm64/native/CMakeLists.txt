@@ -21,6 +21,15 @@ add_compile_options(
     "-ffile-prefix-map=${CMAKE_BINARY_DIR}=build")
 add_link_options("-Wl,--build-id=sha1" "-s")
 
+# 64-bit Android devices may use 16 KiB memory pages, and their loader refuses
+# a library whose LOAD segments are aligned to less than the page size. NDK
+# r25b aligns to 4 KiB by default, so 64-bit ABIs link with a 16 KiB maximum
+# page size, which also loads on 4 KiB devices. 32-bit ABIs, including the
+# x86 oracle build, keep the default.
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    add_link_options("-Wl,-z,max-page-size=16384")
+endif()
+
 add_library(serialport_jni SHARED serialport/serialport.c)
 target_link_libraries(serialport_jni log)
 

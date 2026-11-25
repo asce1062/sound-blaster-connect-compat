@@ -102,6 +102,7 @@ Side effect (**Static**): at six sites the flags register is also the request-co
 | 64-bit-only install and load | `primaryCpuAbi=arm64-v8a`; natives bind with no `UnsatisfiedLinkError`; `SbxSppCommandManager` handles a live inbound command; RFCOMM SPP channel opened to the Katana | **Device** (Pixel 7a API 33, S24 Ultra API 36) |
 | Negative control | `resign` APK on the Pixel 7a: `INSTALL_FAILED_NO_MATCHING_ABIS` | **Device** |
 | Install on 32-bit devices | The 32-bit libraries are still present | **Expected** |
+| 16 KiB page size | The arm64-v8a libraries link with `-z max-page-size=16384`, so their `PT_LOAD` segments are 16 KiB aligned, as the Android 15+ loader requires on 16 KiB-page devices. No such device has been tested ([NATIVE_LIBRARIES.md](NATIVE_LIBRARIES.md#16-kib-page-size)) | **Build**; device load **Expected** |
 | Native behavior parity | JNI parity was established differentially against an x86 oracle build of the same source; command/response correctness against hardware is not claimed | **Static**, scope limit |
 
 ## `compat`: distribution identity
