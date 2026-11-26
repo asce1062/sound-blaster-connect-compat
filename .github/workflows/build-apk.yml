@@ -80,6 +80,12 @@ jobs:
           path: build/tools
           key: jars-${{ hashFiles('CMakeLists.txt') }}
 
+      # The SDK's CMake 3.22.1 on the Linux runner stops at file(DOWNLOAD) with
+      # "cannot open file for write", so the jars are fetched here and
+      # configure only verifies them.
+      - name: Tool jars (verified against their pins)
+        run: python3 scripts/ci/check_pins.py --download build/tools .
+
       - name: Configure
         env:
           SDK: ${{ steps.tc.outputs.sdk }}

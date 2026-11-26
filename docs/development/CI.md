@@ -39,11 +39,14 @@ parallel jobs. Each job:
    deploy key and checks its SHA-256 against `apk_input_sha256` in
    `CMakeLists.txt` before anything reads it; the input checkout is deleted
    in the same step sequence;
-3. configures (which checks the SHA-256 again, and the tool jars) and builds
-   `apk-<variant>`;
-4. for `arm64` and `compat`, checks the native libraries against the
+3. fetches the tool jars with `check_pins.py --download` and checks them
+   against their pins (the SDK's CMake 3.22.1 cannot write a
+   `file(DOWNLOAD)` output on the Linux runner);
+4. configures (which checks the stock SHA-256 and the tool jars again) and
+   builds `apk-<variant>`;
+5. for `arm64` and `compat`, checks the native libraries against the
    accepted hashes;
-5. writes the APK SHA-256s and [content digests](#equivalent-builds) to the
+6. writes the APK SHA-256s and [content digests](#equivalent-builds) to the
    job summary.
 
 The stock APK never enters this repository or its history. The workflow
