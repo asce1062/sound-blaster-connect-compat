@@ -110,7 +110,8 @@ enter the repository.
    `SBC_TEST_RELEASE_KEY_PASS`; variables `SBC_TEST_RELEASE_KEY_ALIAS`,
    `SBC_TEST_RELEASE_CERT_SHA256`.
 5. **Environment `release`**: deployment tags `v*` and branch `main`, a
-   required reviewer; secrets `SBC_RELEASE_KEYSTORE_B64`,
+   required reviewer where the account's plan allows one on a private
+   repository; secrets `SBC_RELEASE_KEYSTORE_B64`,
    `SBC_RELEASE_KEYSTORE_PASS`, optional `SBC_RELEASE_KEY_PASS`; variables
    `SBC_RELEASE_KEY_ALIAS`, `SBC_RELEASE_CERT_SHA256`. Leave the secrets
    unset to keep production signing on the local route
