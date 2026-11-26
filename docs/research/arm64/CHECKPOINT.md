@@ -60,7 +60,7 @@ is diffed against output captured on the same AVD.
 35 reachable `private static native` methods on `SbxSppCommandManager`, bound
 by export name
 `Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_<name>`.
-Full table with signatures in [FREEZE.md](FREEZE.md#jni-exports). Summary:
+Full table with signatures in [FREEZE.md](FREEZE.md#jni-exports--35-reachable-java-native-methods-sbxsppcommandmanager-all-private-static-native). Summary:
 
 ```
 cancelFileTransfer ()[B       getFwInfo (I)[B                 setActiveProfileMega (I)[B
@@ -81,7 +81,7 @@ getDeviceFwString ()[B         getFileTransferMaxDataSize ()I
 
 28 inbound callbacks, cached by `JNI_OnLoad` and upcalled from `Decode::decode`
 via `CallStaticVoidMethod`. Full table with JNI signatures in
-[FREEZE.md](FREEZE.md#inbound-callbacks). Names:
+[FREEZE.md](FREEZE.md#inbound-callbacks--28-cached-static-methods-name---jni-signature). Names:
 
 ```
 requestControlCallback        dataAckCallback               obsoleteAckCallback
@@ -121,7 +121,7 @@ The Katana (`"SOUND BLASTERX KATANA"`) connects through
   `SbxSocketUART$ConnectThread`, which the Katana never selects. It is retained
   as an isolated arm64 compat component for UART devices and is already rebuilt
   for arm64-v8a
-  ([`patches/arm64/overlay/lib/arm64-v8a/libserialport_jni.so`](../../patches/arm64/overlay/lib/arm64-v8a/libserialport_jni.so)).
+  (`patches/arm64/overlay/lib/arm64-v8a/libserialport_jni.so`).
 
 The entire app loads exactly these two native libraries; there is no third
 native stack. `CtProtocolMgr` itself is pure Java.

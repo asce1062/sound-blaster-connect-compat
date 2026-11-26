@@ -113,9 +113,15 @@ serialport). `.rodata`, `.dynsym`, `.dynstr`, `.eh_frame` and the data
 contents are identical; `.rela.dyn`, `.rela.plt`, `.dynamic` and the build id
 change with the addresses. File sizes are unchanged. **Build**
 
-No 16 KiB device or emulator has run these libraries. Loading on a 4 KiB
-device is **Expected** (a 16 KiB-aligned library is valid on 4 KiB pages) until
-the next device run.
+| Environment | Result | Basis |
+|---|---|---|
+| 4 KiB-page arm64 devices (Pixel 8, Galaxy S24 Ultra, API 37) | the 16 KiB-aligned libraries with the accepted hashes load; on the S24 Ultra the app connects to the Katana and reads and writes its state ([PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md)) | **Device** |
+| 16 KiB-page API 36 emulator, x86_64 guest | `libsbxapplogic_ctprotocol_jni.so` loads in the app and maps at 16 KiB-aligned offsets, translated by `libndk_translation`; the protocol core built for arm64 and for x86_64 reproduces all seven frozen outputs ([PAGE_SIZE_16K.md](../research/android/PAGE_SIZE_16K.md)) | **Emulator**, translated |
+| 16 KiB-page arm64 device, native execution | not run | **Expected** |
+
+A translated load does not show what a 16 KiB arm64 device's own linker
+does with the libraries; native 16 KiB execution is a documented limitation
+until such a device runs them.
 
 ### Verification baseline
 
@@ -198,7 +204,7 @@ The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_st
 - No arm64 run of the oracle vectors exists. arm64 behavior is inferred from identical source, 64-bit host tests and device runs.
 - The `.so` files are not checked into the repository, and no recorded rebuild compares the current build output with the hardware-validated hashes.
 - `libserialport_jni.so` has no test of any kind.
-- No device with 16 KiB pages has run the arm64 libraries; their 16 KiB readiness rests on the ELF alignment alone.
+- No arm64 device with 16 KiB pages has run the arm64 libraries natively; their 16 KiB readiness rests on the ELF alignment and a translated load on a 16 KiB-page x86_64 emulator ([16 KiB page size](#16-kib-page-size)). CI checks the alignment of every build.
 - The device runs bound every native method and showed live traffic, but they do not compare encoder or decoder output against a reference. The stock Java `CtProtocolMgr` swallows an `ArrayIndexOutOfBoundsException` on some live frames; that is outside the native libraries ([ARM64_VERDICT.md](../research/arm64/ARM64_VERDICT.md)).
 - The decoder probe sweeps described in [DECODE_DIFFERENTIAL.md](../research/decoder/DECODE_DIFFERENTIAL.md) are not stored, so claims that rest only on them are **Static (unrecorded)**.
 

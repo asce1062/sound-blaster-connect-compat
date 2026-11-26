@@ -70,6 +70,9 @@ Classification: **Research** explains how behavior was recovered or decided;
 | [PERMISSION_REGRESSION.md](android/PERMISSION_REGRESSION.md) | Validation | Galaxy S24 Ultra runs of the permission lifecycle with the Katana (revocation while connected, retry, notifications and location denied, A/B/A, boot, hardening), the discovery-call fix, and the Pixel 8 Play Protect user route; the current verdicts. |
 | [PERMISSION_LIFECYCLE.md](android/PERMISSION_LIFECYCLE.md) | Research | Bluetooth entry points, runtime-permission consumers, stock hidden-API calls and the manifest review behind the permission lifecycle of `modernize`. |
 | [RELEASE_SIGNING.md](android/RELEASE_SIGNING.md) | Validation | `test-release` and `release` signing of `compat` with disposable keys: positive and fail-closed controls, credential exposure, and the emulator update rehearsal. |
+| [PAGE_SIZE_16K.md](android/PAGE_SIZE_16K.md) | Validation | The arm64 libraries and the protocol drivers on a 16 KiB-page API 36 emulator: translated load, all suites pass; native arm64 at 16 KiB not established. |
+| [BUILD_TIMES.md](android/BUILD_TIMES.md) | Validation | Stage times of the APK build, and a clean rebuild of `compat` that is content-identical to the accepted build. |
+| [RELEASE_PIPELINE_REHEARSAL.md](android/RELEASE_PIPELINE_REHEARSAL.md) | Validation | The signing driver through the build target and the release workflow's sign step with a disposable key: fail-closed controls, identical outputs from both routes, `verify_release.py`. |
 
 ## Vocabulary
 
@@ -139,7 +142,10 @@ host compiler.
   ([TESTING.md](../development/TESTING.md#supplementary-vector-set)).
 - **No arm64 oracle run.** The harness runs on a 32-bit x86 runtime. The arm64
   libraries are built from the same source that passes the x86 differential and
-  the 64-bit host tests; on arm64 they are checked only by the device runs.
+  the 64-bit host tests; on arm64 they are checked only by the device runs. The
+  host regression driver built for arm64 reproduces the frozen outputs under
+  translation on a 16 KiB-page emulator ([PAGE_SIZE_16K.md](android/PAGE_SIZE_16K.md));
+  that is the core compiled for arm64, not the JNI library.
 - **Devices.** Hardware runs used two 64-bit-only phones and one Katana
   speaker. No 32-bit Android device was tested.
 

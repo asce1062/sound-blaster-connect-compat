@@ -128,6 +128,24 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 | `android_sdk_root` | `ANDROID_SDK_ROOT`, `ANDROID_HOME` or `%LOCALAPPDATA%/Android/Sdk` | SDK holding the signing build-tools |
 | `android_build_tools_version` | `37.0.0` | build-tools release of `apksigner`, `zipalign` and `aapt2` for release signing |
 | `sbc_package` | `com.creative.apps.sbconnect` | stock application ID of the `resign`, `modernize` and `arm64` variants. `deploy` launches the package of the chosen variant, so `compat` launches `io.github.asce1062.sbconnect.compat` |
+| `sbc_prerelease` | empty | pre-release label appended to the `compat` versionName, tag and file name; the versionCode is unchanged ([SIGNING.md](SIGNING.md#pre-release-label)) |
+
+## Comparing builds
+
+APK files from two builds differ in their bytes even from the same source,
+because apktool records the build time in every ZIP entry. Compare content
+instead:
+
+```sh
+python3 scripts/ci/compare_apks.py build/sbc_compat.apk other/sbc_compat.apk
+python3 scripts/ci/compare_apks.py --digest --ignore-signatures build/sbc_compat-aligned-debugSigned.apk
+```
+
+Equal content digests mean the same entries with the same uncompressed
+bytes. The native libraries are byte-reproducible and
+`scripts/ci/check_elf.py arm64-v8a build/native/arm64-v8a/lib` checks them
+against the accepted hashes. The same build runs in CI
+([CI.md](CI.md#apk-build)).
 
 ## Install on a device
 
@@ -156,4 +174,5 @@ Which variant suits which device, and what to expect at first launch, is in
 ## Tests
 
 The protocol regression tests and the emulator differential are described in
-[TESTING.md](TESTING.md).
+[TESTING.md](TESTING.md). The checks CI runs on every change, and how to run
+them locally, are in [CI.md](CI.md).

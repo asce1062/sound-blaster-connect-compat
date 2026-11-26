@@ -77,7 +77,7 @@ full offset -> callback map is in
 and is all-or-nothing: it returns `-1` unless every `GetStaticMethodID` succeeds.
 The mirror class loads the stock `.so` without error, which proves all 28 callback
 names, JNI signatures, and the declaring class resolve exactly as frozen in
-[FREEZE.md](../arm64/FREEZE.md#inbound-callbacks-28-cached-static-methods-name---jni-signature).
+[FREEZE.md](../arm64/FREEZE.md#inbound-callbacks--28-cached-static-methods-name---jni-signature).
 
 ## Return value is not the accept/reject signal
 

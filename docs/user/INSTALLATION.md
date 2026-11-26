@@ -5,6 +5,26 @@ first launch. There is no published release yet: you build the APK yourself
 from your own copy of the stock app, as described in
 [BUILDING.md](../development/BUILDING.md).
 
+## Check a release download
+
+A release is the `compat` build, published as
+`sbconnect-compat-v<version>.apk` with a `.sha256` and a `.json` file next
+to it. Before installing one:
+
+1. Check the file: `sha256sum -c sbconnect-compat-v<version>.apk.sha256`, or
+   in PowerShell `Get-FileHash sbconnect-compat-v<version>.apk` and compare
+   with the `.sha256` file.
+2. Check the signer: `apksigner verify --print-certs <apk>` (Android SDK
+   build-tools) prints the certificate SHA-256. It must equal the project's
+   published fingerprint in
+   [`signing/release-certificate.sha256`](../development/SIGNING.md#the-production-key).
+   An APK with any other signer is not a release of this project.
+
+Every release is signed with the same key, so a later release installs over
+an earlier one and keeps your settings. A self-built debug-signed APK has a
+different signer: switching between it and a release needs an uninstall,
+which deletes the app's settings.
+
 ## Choose a variant
 
 | Your phone | Use | Status |
@@ -46,9 +66,11 @@ Blaster devices that the stock app supports may work but have not been tried.
    Or copy the APK to the phone and open it; Android asks you to allow
    installs from the app you opened it with.
 3. Google Play Protect may say it has not seen the app before and offer
-   **Scan app**. Scanning sends the APK to Google; on a Pixel 8 the current
-   build came back as "This app looks safe", with **Install**. An earlier build
-   with more permissions was blocked outright on a Galaxy S24 Ultra. Do not
+   **Scan app**. Scanning sends the APK to Google; on a Pixel 8 one
+   debug-signed build with the current permission set came back as "This app
+   looks safe", with **Install**. An earlier build with more permissions was
+   blocked outright on a Galaxy S24 Ultra. A scan judges the exact file it
+   sees, so another build or signer can get a different result. Do not
    turn off Play Protect to install the app;
    [PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect) records the
    behavior observed on the test phones.

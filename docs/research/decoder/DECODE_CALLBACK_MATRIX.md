@@ -6,7 +6,7 @@ Gates D1 (valid-frame coverage) and D5 (callback fidelity). Every inbound callba
 the stock decoder can emit, keyed on the opcode and discriminant that reaches it,
 with the exact typed arguments captured from the oracle. JNI signatures are the
 frozen descriptors from
-[FREEZE.md](../arm64/FREEZE.md#inbound-callbacks-28-cached-static-methods-name---jni-signature);
+[FREEZE.md](../arm64/FREEZE.md#inbound-callbacks--28-cached-static-methods-name---jni-signature);
 argument values are from [`vectors/dec_valid.out.txt`](../../../oracle/vectors/dec_valid.out.txt).
 Discriminants are stated in observable terms (opcode byte `buf[1]`, payload length
 `plen`, first payload byte `sub = buf[3]`).

@@ -67,7 +67,14 @@ from environment secrets ([RELEASE.md](RELEASE.md)).
 
 ## Pipeline
 
-Three processes run in order. A failing step stops the target.
+One driver, [`cmake/sign_release.cmake`](../../cmake/sign_release.cmake),
+runs three processes in order; a failing step stops it. The
+`apk-compat-<mode>` targets call it with every value given. The release
+workflow's signing job, which has no build tree, calls it through
+[`scripts/ci/sign_release.sh`](../../scripts/ci/sign_release.sh) with
+`-DRELEASE_ENV=<release.env>` from the build that produced the unsigned APK
+([CI.md](CI.md#release)). Local and CI signing therefore run the same steps
+with the same checks.
 
 | Step | Script | Does |
 |---|---|---|
@@ -136,6 +143,29 @@ cmake -DMODE=release -DAPK=sbconnect-compat-v0.1.0.apk \
 Without `-DUNSIGNED` and `-DNATIVE_LIBS` it skips the payload and library
 byte comparisons and runs checks 1 to 4 and the ABI check.
 
+[`scripts/ci/verify_release.py`](../../scripts/ci/verify_release.py) adds
+the checks that need no Android tools: the `.sha256` file, the `.json`
+metadata against the APK and the expected certificate, and the arm64
+libraries in the APK against the accepted SHA-256s in
+[`tests/native/expected_abi.json`](../../tests/native/expected_abi.json):
+
+```sh
+python3 scripts/ci/verify_release.py --apk sbconnect-compat-v0.1.0.apk \
+    --mode release --cert <published certificate SHA-256>
+```
+
+## Pre-release label
+
+`-Dsbc_prerelease=<label>` (dot-separated alphanumerics, for example
+`rehearsal.1`) marks a build that is not a release. The label is appended to
+the versionName, the tag and the file name
+(`1.04.02-compat.0.1.0-rehearsal.1`, `v0.1.0-rehearsal.1`); the versionCode
+stays that of the version. A labelled build signed with the production key
+therefore updates an installed release of the same certificate, and the
+release of that version, with the same versionCode, still installs over it.
+This is the update qualification build ([RELEASE.md](RELEASE.md#update-qualification)).
+The release workflow refuses a label on a release tag.
+
 ## Disposable keys
 
 test-release needs a key nobody depends on. Create one outside the
@@ -156,7 +186,11 @@ and the reverse; uninstalling is the only way between them.
 
 ## The production key
 
-The production key does not exist yet. Its creation, backup and the
-publication of its certificate fingerprint are operator steps in
-[RELEASE.md](RELEASE.md#once-create-the-release-key). Until it exists,
-`apk-compat-release` cannot succeed.
+Its creation, backup and the publication of its certificate fingerprint are
+operator steps in [RELEASE.md](RELEASE.md#once-create-the-release-key). The
+published fingerprint is committed as `signing/release-certificate.sha256`;
+the release workflow's verification accepts no other certificate in release
+mode, and fails while the file does not exist. A debug or disposable key
+never substitutes for the production key: `apk-compat-release` reads only
+`SBC_RELEASE_*`, refuses an Android debug certificate, and compares the
+signer with the expected fingerprint.

@@ -62,7 +62,11 @@ uninstalled before installing one of them. Details in [BUILDING.md](docs/develop
 - users: [INSTALLATION.md](docs/user/INSTALLATION.md)
 - building and testing: [BUILDING.md](docs/development/BUILDING.md),
   [TESTING.md](docs/development/TESTING.md),
-  [ARCHITECTURE.md](docs/development/ARCHITECTURE.md)
+  [ARCHITECTURE.md](docs/development/ARCHITECTURE.md),
+  [CI.md](docs/development/CI.md)
+- releases and signing: [RELEASE.md](docs/development/RELEASE.md),
+  [SIGNING.md](docs/development/SIGNING.md), [CHANGELOG.md](CHANGELOG.md)
+- security and reporting: [SECURITY.md](SECURITY.md)
 - technical references: [`docs/technical/`](docs/technical/)
 - design decisions: [`docs/decisions/`](docs/decisions/)
 - how the behavior was established: [`docs/research/`](docs/research/)
