@@ -15,7 +15,8 @@ Fails when a tracked file:
     documentation placeholder address.
 
 With --history, also fails when a commit's author or committer e-mail is not
-a GitHub noreply address.
+a GitHub noreply address. GitHub itself (noreply@github.com) is accepted as
+committer only: it commits the merge a pull request run tests.
 
 Usage: check_hygiene.py [--history] [repo root]
 Exit status 0 when clean, 1 otherwise. Standard library only.
@@ -36,6 +37,7 @@ FORBIDDEN_DIRS = ("build/", "decompiled/", "inputs/", "tools/")
 OVERLAY_SMALI = re.compile(r"^patches/[^/]+/overlay/smali[^/]*/")
 
 NOREPLY = re.compile(r"@users\.noreply\.github\.com$", re.I)
+GITHUB_COMMITTER = "noreply@github.com"
 PLACEHOLDER_DOMAINS = ("example.com", "example.org", "example.net")
 
 CONTENT_RULES = [
@@ -58,7 +60,7 @@ def git(root, *args):
 
 def email_ok(addr):
     a = addr.lower()
-    return bool(NOREPLY.search(a)) or a.endswith(PLACEHOLDER_DOMAINS)
+    return bool(NOREPLY.search(a)) or a == GITHUB_COMMITTER or a.endswith(PLACEHOLDER_DOMAINS)
 
 
 def check_tree(root):
@@ -99,6 +101,10 @@ def check_history(root):
     for line in git(root, "log", "--all", "--format=%h%x09%ae%x09%ce").splitlines():
         h, author, committer = line.split("\t")
         for role, addr in (("author", author), ("committer", committer)):
+            # GitHub commits the merge it tests for a pull request, and web
+            # merges, as itself (GITHUB_COMMITTER).
+            if role == "committer" and addr.lower() == GITHUB_COMMITTER:
+                continue
             if not NOREPLY.search(addr):
                 problems.append(f"commit {h}: {role} e-mail is not a GitHub noreply address")
     return problems
