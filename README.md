@@ -24,9 +24,10 @@ resources in modified form. See [NOTICE.md](NOTICE.md).
 
 ## Install
 
-Download `sbconnect-compat-v<version>.apk` from this repository's
-**Releases** page, check its SHA-256 and signer, and sideload it. It installs
-next to the stock app, and later releases update it in place.
+Download `sbconnect-compat-v<version>.apk` from the
+[latest release](https://github.com/asce1062/sound-blaster-connect-compat/releases/latest),
+check its SHA-256 and signer, and sideload it. It installs next to the stock
+app, and later releases update it in place.
 [INSTALLATION.md](docs/user/INSTALLATION.md) has the steps, the device
 matrix and troubleshooting.
 

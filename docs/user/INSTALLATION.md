@@ -12,7 +12,8 @@ support it.
 There are two ways to get it:
 
 - **A release**: the `compat` build, signed with the project's key, attached
-  to a release on this repository's GitHub **Releases** page.
+  to a release on this repository's
+  [Releases page](https://github.com/asce1062/sound-blaster-connect-compat/releases).
 - **A build of your own**: any variant, built from your own copy of the stock
   app as described in [BUILDING.md](../development/BUILDING.md), signed with
   a debug key.

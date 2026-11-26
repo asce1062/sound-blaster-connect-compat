@@ -140,7 +140,12 @@ source; a missing file fails the job, so no other certificate passes.
   repository, an old tag included, has no way to fetch the stock APK or a
   signing key.
 - Only `ci.yml` runs here, on pushes and pull requests, and it reads no
-  secret and writes nothing but logs.
+  secret and writes nothing but logs. The former APK workflows, which older
+  commits still contain, are disabled: the `v0.1.0` tag at `596f3bb`, which
+  holds a `release.yml` triggered by `v*` tags, started only `ci.yml`.
+- Workflow runs from outside contributors wait for approval, and
+  vulnerabilities are reported through private advisories
+  ([SECURITY.md](../../SECURITY.md)).
 - The trusted workflows run in a private repository that only the
   maintainer can push to, from its default branch, and only the published
   definition of the commit they build.
