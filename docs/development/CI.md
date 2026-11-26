@@ -61,9 +61,11 @@ run takes `ref`, the full SHA of the compat commit to build, and each job:
    by the variable `SBC_SOURCE_REPOSITORY`;
 2. runs the [trusted-definition](../../.github/actions/trusted-definition/action.yml)
    action, which stops the job when the repository it runs in is public,
-   when the checkout is not `ref`, or when the running repository's workflow
-   files differ from `ci/trusted/` at `ref`. A run therefore executes only
-   the definition published with the source it builds.
+   when the checkout is not `ref`, when `ref` is on no branch of the source
+   repository, or when the running repository's workflow files differ from
+   `ci/trusted/` at `ref`. A run therefore executes only the definition
+   published with the source it builds, and never the commit of a pull
+   request from a fork, which a public repository also serves by SHA.
 
 The stock APK is read from the repository the workflow runs in, with the
 workflow's own read-only token; no deploy key exists.

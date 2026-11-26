@@ -22,8 +22,9 @@ reach a credential.
   of the compat repository and run from `.github/workflows/` of the private
   build-input repository, which also holds the stock APK. They run only on
   dispatch, check out the compat source at a full commit SHA, and refuse to
-  run in a public repository or when their own files differ from
-  `ci/trusted/` at that commit.
+  run in a public repository, for a commit on no branch of the source
+  repository (a fork's pull-request commit), or when their own files differ
+  from `ci/trusted/` at that commit.
 - Every artifact upload in a trusted workflow is conditional on the running
   repository being private. Artifacts stay in the build-input repository.
 - `scripts/ci/check_workflows.py`, run by source CI, fails a public

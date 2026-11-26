@@ -3,7 +3,8 @@ description: >
   First step of every job in the trusted workflows (ci/trusted/), which run
   from the private build-input repository with the compat source checked out
   in the workspace. Refuses a public repository, checks that the workspace
-  holds the requested source commit, and checks that the running
+  holds the requested source commit and that the commit is on a branch of
+  the source repository, and checks that the running
   repository's workflow files equal ci/trusted/ at that commit, so the
   private pipeline runs only the published definition.
 inputs:
@@ -23,6 +24,25 @@ runs:
         [ "$PRIVATE" = true ] || { echo "the trusted workflows run only in a private repository" >&2; exit 1; }
         printf '%s' "$REF" | grep -qE '^[0-9a-f]{40}$' || { echo "ref must be a full commit SHA, not '$REF'" >&2; exit 1; }
         [ "$(git rev-parse HEAD)" = "$REF" ] || { echo "the source checkout is not $REF" >&2; exit 1; }
+
+    # A public repository also serves the commits of pull requests from
+    # forks by SHA (refs/pull/*). Only a commit on one of its branches,
+    # which only writers can push, is built.
+    - name: Requested commit is on a branch of the source repository
+      shell: bash
+      env:
+        REF: ${{ inputs.ref }}
+        TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        url="$(git remote get-url origin)"
+        auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+        git -c http.extraheader="$auth" fetch -q --no-tags --filter=blob:none \
+          "$url" '+refs/heads/*:refs/sbc-source-branches/*'
+        on="$(git for-each-ref --contains "$REF" --format='%(refname:lstrip=2)' refs/sbc-source-branches)"
+        git for-each-ref --format='delete %(refname)' refs/sbc-source-branches | git update-ref --stdin
+        [ -n "$on" ] || { echo "$REF is not on any branch of $url" >&2; exit 1; }
+        echo "source commit $REF is on: $(echo $on)" >> "$GITHUB_STEP_SUMMARY"
 
     - name: This repository's workflow files
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
