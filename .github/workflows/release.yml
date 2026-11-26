@@ -136,8 +136,9 @@ jobs:
     env:
       MODE: ${{ needs.plan.outputs.mode }}
       LABEL: ${{ needs.plan.outputs.prerelease }}
-      IN: ${{ runner.temp }}/in
     steps:
+      # The runner context is not available in job-level env.
+      - run: echo "IN=$RUNNER_TEMP/in" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -223,11 +224,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE: ${{ needs.plan.outputs.release }}
-      OUT: ${{ runner.temp }}/out
     steps:
       - name: Download the locally signed APK from the draft
         run: |
           set -euo pipefail
+          OUT="$RUNNER_TEMP/out"
           draft="$(gh release view "$RELEASE" --json isDraft --jq .isDraft)"
           [ "$draft" = true ] || { echo "$RELEASE is not a draft release" >&2; exit 1; }
           gh release download "$RELEASE" -p '*.apk' -p '*.apk.sha256' -p '*.apk.json' -D "$OUT"
