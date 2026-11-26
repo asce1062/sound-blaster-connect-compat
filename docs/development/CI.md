@@ -142,7 +142,12 @@ source; a missing file fails the job, so no other certificate passes.
 - Only `ci.yml` runs here, on pushes and pull requests, and it reads no
   secret and writes nothing but logs. The former APK workflows, which older
   commits still contain, are disabled: the `v0.1.0` tag at `596f3bb`, which
-  holds a `release.yml` triggered by `v*` tags, started only `ci.yml`.
+  holds a `release.yml` triggered by `v*` tags, started only `ci.yml`. A run
+  at such a commit uses that commit's `apk-toolchain` action, which caches
+  the Android SDK packages of
+  [`sdk-packages.txt`](../../scripts/ci/sdk-packages.txt) under the tag's
+  ref; the cache holds no stock input or build output and is deleted after
+  the run.
 - Workflow runs from outside contributors wait for approval, and
   vulnerabilities are reported through private advisories
   ([SECURITY.md](../../SECURITY.md)).
