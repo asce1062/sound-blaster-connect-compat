@@ -18,7 +18,7 @@ may be distributed.
 | production key | not created |
 | published certificate fingerprint | none |
 | release CI | interface defined below; no workflow, no remote secrets |
-| user install route (file manager, system installer, Play Protect on) | not qualified: blocked for the build with the stock permission set; the current build is untested on that route ([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)) |
+| user install route (file manager, system installer, Play Protect on) | not qualified for a release: the debug-signed build with the reduced permission set installs on a Pixel 8 after a Play Protect scan reports it safe; the release-signed APK has not been through the route ([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)) |
 
 A release cannot be produced until the production key exists, is backed up
 and its fingerprint is published. A release is not published until the user

@@ -39,7 +39,10 @@ import android.widget.Toast;
  *
  * <p>Gates: {@link #btOk()} and {@link #scanOk()} are consulted at the entry
  * of the Bluetooth utility and connection-manager methods, which return their
- * "no device" value instead of calling the platform without the grant.
+ * "no device" value instead of calling the platform without the grant. Every
+ * stock discovery call ({@code startDiscovery}, {@code cancelDiscovery},
+ * {@code isDiscovering}) goes through this class and checks {@link #scanOk()},
+ * since connect paths that hold only BLUETOOTH_CONNECT reach them.
  *
  * <p>When Nearby devices is granted after the activity was created without it
  * (from the dialog or from system settings), the activity is recreated once so
@@ -170,6 +173,53 @@ public final class PermissionLifecycle {
             return adapter.enable();
         } catch (RuntimeException e) {
             Log.w(TAG, "enable failed", e);
+            return false;
+        }
+    }
+
+    /**
+     * Replaces the stock {@code BluetoothAdapter.startDiscovery()} calls. From
+     * API 31 discovery needs BLUETOOTH_SCAN; without it the call is skipped and
+     * reports failure.
+     */
+    public static boolean startDiscovery(BluetoothAdapter adapter) {
+        if (adapter == null || !scanOk()) {
+            return false;
+        }
+        try {
+            return adapter.startDiscovery();
+        } catch (RuntimeException e) {
+            Log.w(TAG, "startDiscovery failed", e);
+            return false;
+        }
+    }
+
+    /**
+     * Replaces the stock {@code BluetoothAdapter.cancelDiscovery()} calls, which
+     * the connect paths make before opening a socket. Without BLUETOOTH_SCAN
+     * this app cannot have started a discovery, so there is none to cancel.
+     */
+    public static boolean cancelDiscovery(BluetoothAdapter adapter) {
+        if (adapter == null || !scanOk()) {
+            return false;
+        }
+        try {
+            return adapter.cancelDiscovery();
+        } catch (RuntimeException e) {
+            Log.w(TAG, "cancelDiscovery failed", e);
+            return false;
+        }
+    }
+
+    /** Replaces the stock {@code BluetoothAdapter.isDiscovering()} call: false without BLUETOOTH_SCAN. */
+    public static boolean isDiscovering(BluetoothAdapter adapter) {
+        if (adapter == null || !scanOk()) {
+            return false;
+        }
+        try {
+            return adapter.isDiscovering();
+        } catch (RuntimeException e) {
+            Log.w(TAG, "isDiscovering failed", e);
             return false;
         }
     }

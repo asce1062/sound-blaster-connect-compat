@@ -143,10 +143,11 @@ system never compares them. Configure writes the values to
 | Nearby Devices permission flow (API 37) | Requested on first launch. Discovery and connection follow the grant. Findings: a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices`, a repeated microphone request, and a location request. Superseded by the permission lifecycle ([ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md) row 11): on a Pixel 8 at API 37 the launch asks for Nearby devices and notifications only, once, with no pre-grant `SecurityException` | **Device** |
 | Component exports | From the shell uid, `MainReceiver` and `MediaButtonReceiver` broadcasts are not delivered and `MainService` is refused as not exported. The foreground service starts from the app itself after SPP connects | **Device** |
 | Boot | `BOOT_COMPLETED` reaches `MainReceiver` of `compat` and of the `arm64` install; each starts its process and `MainService` | **Device** |
-| Play Protect, user route | A debug-signed `compat` with the stock permission set opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds and does not qualify the user route. The build with the reduced permission set has not been through the user route | **Device** (fail) |
+| Play Protect, user route | A debug-signed `compat` with the stock permission set opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds and does not qualify the user route. Superseded for the build with the reduced permission set: on a Pixel 8 Play Protect recommends a scan, reports the app safe and it installs ([PERMISSIONS.md](PERMISSIONS.md#play-protect)) | **Device** |
 
-Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md).
-The Play Protect block on the user route is the open distribution issue. The
+Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md),
+[PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md).
+The user route for a release-signed APK is the open distribution item. The
 identity itself (package, label, versions, provider authority, data
 separation, package-relative code paths) behaves as specified on the device.
 

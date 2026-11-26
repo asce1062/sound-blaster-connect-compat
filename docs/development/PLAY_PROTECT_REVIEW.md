@@ -1,11 +1,14 @@
 # Play Protect review submission (draft)
 
-Status: **not submitted.** This draft is used only if the user install route
-(file manager, then the system package installer) still blocks the current
-`compat` build on a device with Play Protect on. The retest is the pending row
-in [PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect). Play Protect is
-not disabled, bypassed or excluded to install the app, and an `adb install` is
-not presented as evidence that the user route works.
+Status: **not submitted, not needed so far.** This draft is used only if the
+user install route (file manager, then the system package installer) blocks a
+`compat` build on a device with Play Protect on. The debug-signed build with the
+reduced permission set is not blocked on a Pixel 8: Play Protect recommends a
+scan and then reports it safe
+([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)). The release-signed
+APK has not been through the route. Play Protect is not disabled, bypassed or
+excluded to install the app, and an `adb install` is not presented as evidence
+that the user route works.
 
 ## Before submitting
 

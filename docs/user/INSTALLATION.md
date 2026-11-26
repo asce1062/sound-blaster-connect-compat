@@ -45,13 +45,13 @@ Blaster devices that the stock app supports may work but have not been tried.
 
    Or copy the APK to the phone and open it; Android asks you to allow
    installs from the app you opened it with.
-3. Google Play Protect may warn about an app from an unknown developer, scan
-   it, or block it. A debug-signed build with the stock permission set was
-   blocked when opened from the file manager on a Galaxy S24 Ultra, with no
-   option to install anyway. The current build, with fewer permissions, has
-   not been tried that way yet. Do not turn off Play Protect to install it;
-   [PERMISSIONS.md](../technical/PERMISSIONS.md) records the behavior observed
-   on the test phones.
+3. Google Play Protect may say it has not seen the app before and offer
+   **Scan app**. Scanning sends the APK to Google; on a Pixel 8 the current
+   build came back as "This app looks safe", with **Install**. An earlier build
+   with more permissions was blocked outright on a Galaxy S24 Ultra. Do not
+   turn off Play Protect to install the app;
+   [PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect) records the
+   behavior observed on the test phones.
 
 Builds made on different computers may carry different debug keys. Installing
 one over another then fails the same way, and the app has to be uninstalled

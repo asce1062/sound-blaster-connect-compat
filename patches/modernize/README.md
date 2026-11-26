@@ -27,7 +27,8 @@ patch and then `arm64`.
 - `PermissionLifecycle` in `java/`: every runtime permission request (a
   one-time launch sequence, then explanation dialogs at the features that
   need a permission, with Settings guidance after a permanent denial) and the
-  18 Bluetooth entry gates that keep the app offline without the grant.
+  18 Bluetooth entry gates that keep the app offline without the grant, plus
+  wrappers for the 10 discovery calls that need `BLUETOOTH_SCAN`.
 
 Each change, the platform rule behind it and how it was verified are in
 [ANDROID_COMPATIBILITY.md](../../docs/technical/ANDROID_COMPATIBILITY.md); the

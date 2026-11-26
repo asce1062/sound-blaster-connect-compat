@@ -20,11 +20,11 @@ No 32-bit device was tested; anything about the variants on 32-bit hardware is *
 |---|---|---|---|---|---|
 | `BLUETOOTH` | Stock, capped `maxSdkVersion="30"` | Normal (install-time) | none | SPP/RFCOMM link to the device on API 30 and below | **Build** (cap); **Static** (use) |
 | `BLUETOOTH_ADMIN` | Stock, capped `maxSdkVersion="30"` | Normal (install-time) | none | Discovery and adapter control on API 30 and below | **Build**; **Static** |
-| `BLUETOOTH_SCAN` | Added, `usesPermissionFlags="neverForLocation"` | Dangerous, runtime (API 31+, "Nearby devices") | `PermissionLifecycle`, request code 0x42c: once per install at launch; afterwards from the connect screen or a device tap, after an explanation | Classic discovery (`startDiscovery`) and BLE scan start | **Build**; **Device** (Pixel 8, API 37: an unpaired Katana discovered with location denied) |
+| `BLUETOOTH_SCAN` | Added, `usesPermissionFlags="neverForLocation"` | Dangerous, runtime (API 31+, "Nearby devices") | `PermissionLifecycle`, request code 0x42c: once per install at launch; afterwards from the connect screen or a device tap, after an explanation | Classic discovery (`startDiscovery`, `cancelDiscovery`, `isDiscovering`; 10 calls behind wrappers that skip them without the grant) and BLE scan start | **Build**; **Device** (Pixel 8, API 37: an unpaired Katana discovered with location denied; S24 Ultra: reconnect with `BLUETOOTH_SCAN` revoked, no discovery call) |
 | `BLUETOOTH_CONNECT` | Added | Dangerous, runtime (API 31+, "Nearby devices") | Same request as `BLUETOOTH_SCAN` | Every Bluetooth path: bonded and connected device lookup, bonding, profile connect and disconnect, the SPP connection. 18 entry gates skip these calls without the grant | **Build**; **Device** |
 | `POST_NOTIFICATIONS` | Added | Dangerous, runtime (API 33+) | `PermissionLifecycle`, request code 0x42d, once per install at launch, after the Nearby step and independent of its result | The app's own foreground-service and media notifications; it guards nothing else | **Build**; **Device** (Pixel 8: prompted after Nearby was denied); **Emulator** (API 34) |
 | `FOREGROUND_SERVICE` | Added | Normal | none | `MainService` runs as a foreground service | **Build**; **Device** |
-| `FOREGROUND_SERVICE_CONNECTED_DEVICE` | Added; replaces `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Normal, with a prerequisite met by `CHANGE_NETWORK_STATE` and `NFC` | none | Matches `foregroundServiceType="connectedDevice"` on `MainService` (API 34+) | **Build**; foreground start with a connected speaker is pending on hardware |
+| `FOREGROUND_SERVICE_CONNECTED_DEVICE` | Added; replaces `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Normal, with a prerequisite met by `CHANGE_NETWORK_STATE` and `NFC` | none | Matches `foregroundServiceType="connectedDevice"` on `MainService` (API 34+) | **Build**; **Device** (S24 Ultra, API 37: foreground `connectedDevice` with the Katana connected, [PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md)) |
 | `MODIFY_AUDIO_SETTINGS` | Stock | Normal | none | Audio routing and device settings | **Static** |
 | `WAKE_LOCK` | Stock | Normal | none | Keeps the CPU awake during connect and playback | **Static** |
 | `ACCESS_NETWORK_STATE` | Stock | Normal | none | Connectivity checks; bundled Google Play services libraries | **Static** |
@@ -131,7 +131,8 @@ Play Protect is not disabled, bypassed, patched or excluded by this project. The
 | Install by `adb install`, installer attribution `null` (used for all hardware testing) | No install-time Play Protect prompt or block; the app installed and ran (S24 Ultra; Pixel 8, API 37) | **Device** |
 | Post-install, across repeated reinstall and test cycles | No automatic removal or disable event | **Device** |
 | User route: file manager, then the system package installer, `compat` candidate before the lifecycle change | "App blocked to protect your device", reason that the app can request access to sensitive data, only "Got it"; the installer then reports "App not installed" | **Device** (S24 Ultra, API 37; [PERMISSION_FINDINGS.md](../research/android/PERMISSION_FINDINGS.md) PF8) |
-| User route with the reduced permission set and no notification listener | Pending | |
+| User route with the reduced permission set and no notification listener, debug-signed (file manager Solid Explorer, then the system package installer) | "App scan recommended": Play Protect has not seen the app, with **Scan app**, **Don't install app** and **Install without scanning**. **Scan app** sends the APK to Google; the result is "This app looks safe", then **Install** installs it (installer `com.google.android.packageinstaller`). The app starts with its first-launch dialogs | **Device** (Pixel 8, API 37; [PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md)) |
+| User route with a release-signed APK | Not run; no release key exists. The scan above covers one debug-signed file; a release-signed APK is a different file with a different certificate, so the result does not carry over to it | |
 | Distribution through the Play Store | Not applicable; not distributed there | n/a |
 
 Google's developer guidance for Play Protect warnings describes "App blocked
@@ -140,8 +141,12 @@ internet-sideloading sources (browsers, messaging apps, file managers) that
 declare `RECEIVE_SMS`, `READ_SMS`, a notification listener or an
 accessibility service. The stock manifest declares a notification listener
 and none of the others; the `modernize` patch removes it, so the current build
-declares none of the four (**Static**). Whether that clears the block on the
-user route is **Expected** until the pending row above is run. An appeal goes
+declares none of the four (**Static**). The build without them is not blocked
+on the user route; it gets the scan prompt above instead (**Device**). That
+removing these four is what changed the outcome is consistent with the
+guidance and not shown in isolation: the blocked build ran on the S24 Ultra
+and the scanned one on a Pixel 8, and the builds also differ in other
+permissions. An appeal goes
 through Google's Play Protect appeals form, which asks for the package name and
 the SHA-256 of the APK as submitted to VirusTotal; Google states that its
 decisions are final and that it sends no reply. Separately, Google's Android

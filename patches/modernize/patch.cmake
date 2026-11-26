@@ -572,6 +572,25 @@ _sbc_gate("${cm}" ".method public declared-synchronized c()V" 3 wifiScanOk void)
 _sbc_gate("${TREE}/smali/com/creative/logic/sbxapplogic/BluetoothLE/BLEManager.smali"
           ".method private e()Z" 6 scanOk false)
 
+# Discovery calls. The connect paths (SbxSocketBluetooth, the Bluz socket
+# library in c/) cancel discovery before opening a socket, behind gates that
+# check only BLUETOOTH_CONNECT; with BLUETOOTH_SCAN missing that threw
+# SecurityException. Each call goes through a scanOk() wrapper instead.
+function(_sbc_discovery relfile call count)
+    _sbc_sub("${TREE}/smali/${relfile}"
+             "invoke-virtual {v0}, Landroid/bluetooth/BluetoothAdapter;->${call}()Z"
+             "invoke-static {v0}, ${pl}->${call}(Landroid/bluetooth/BluetoothAdapter;)Z"
+             ${count})
+endfunction()
+_sbc_discovery("c/b.smali" cancelDiscovery 1)
+_sbc_discovery("c/d.smali" isDiscovering 1)
+_sbc_discovery("c/d.smali" cancelDiscovery 1)
+_sbc_discovery("c/d.smali" startDiscovery 1)
+_sbc_discovery("c/f.smali" cancelDiscovery 1)
+_sbc_discovery("com/creative/logic/sbxapplogic/SbxConnectionManager.smali" startDiscovery 2)
+_sbc_discovery("com/creative/logic/sbxapplogic/SbxConnectionManager.smali" cancelDiscovery 2)
+_sbc_discovery("com/creative/logic/sbxapplogic/vendor/sbx/SbxSocketBluetooth\$ConnectThread.smali" cancelDiscovery 1)
+
 # --- explanation strings (English) ----------------------------------------------
 _sbc_sub("${TREE}/res/values/strings.xml" "</resources>"
          "    <string name=\"sbc_perm_allow\">Allow</string>
@@ -591,7 +610,7 @@ _sbc_sub("${TREE}/res/values/strings.xml" "</resources>"
 </resources>"
          1)
 
-message(STATUS "modernize: permission lifecycle wired (PermissionLifecycle: launch sequence, feature prompts, 18 entry gates)")
+message(STATUS "modernize: permission lifecycle wired (PermissionLifecycle: launch sequence, feature prompts, 18 entry gates, 10 discovery calls)")
 
 # ---------------------------------------------------------------------------
 # Notification-listener access prompt: suppressed. MainActivity.v() prompts
