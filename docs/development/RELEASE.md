@@ -20,7 +20,7 @@ decisions.
 | test-release rehearsal (sign, verify, update, foreign-signer refusal) | done on the API 30 emulator; [record](../research/android/RELEASE_SIGNING.md) |
 | production key | created 2026-11-26 on the operator's machine, outside every repository |
 | published certificate fingerprint | `3c726afa...` in [`signing/release-certificate.sha256`](../../signing/release-certificate.sha256) ([SIGNING.md](SIGNING.md#the-production-key)) |
-| production-signed build | none yet |
+| production-signed build | `sbconnect-compat-v0.1.0.apk`, SHA-256 `81b324014aae084c1790c559c7de9e910406946077fb220d1c7b0a0f19f5ba9b`, from `25b7f61`; signing gate passed, the other gates not yet run |
 | source CI, APK build, release and verification workflows | written ([CI.md](CI.md)); not yet run on GitHub, the repository has no remote |
 | user install route (file manager, system installer, Play Protect on) | not qualified for a release-signed APK. The debug-signed b4 build passed a Play Protect scan on a Pixel 8 ([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)); that result does not carry over to another build or certificate |
 
