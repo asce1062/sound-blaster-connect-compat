@@ -1,18 +1,14 @@
 name: Stock APK input
 description: >
-  Fetch the stock APK from the private build-input repository and place it at
-  inputs/SBConnect_v1.04.02.apk after checking its SHA-256 against the pin in
-  CMakeLists.txt. The input repository's checkout and its key are removed
-  before this step ends; the APK never enters this repository.
+  Take the stock APK from the private build-input repository the trusted
+  workflow runs in, and place it at inputs/SBConnect_v1.04.02.apk after
+  checking its SHA-256 against the pin in CMakeLists.txt of the source
+  checkout. The workflow token reads the repository it runs in, so no key is
+  involved. The input checkout is removed before this action ends; the APK
+  never enters the compat repository.
 inputs:
-  repository:
-    description: owner/name of the private build-input repository
-    required: true
-  deploy-key:
-    description: Read-only SSH deploy key of that repository
-    required: true
   path:
-    description: Path of the APK inside the input repository
+    description: Path of the APK inside the build-input repository
     required: false
     default: SBConnect_v1.04.02.apk
 runs:
@@ -21,9 +17,9 @@ runs:
     - name: Check out the build-input repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        repository: ${{ inputs.repository }}
-        ssh-key: ${{ inputs.deploy-key }}
         path: .build-inputs
+        sparse-checkout: ${{ inputs.path }}
+        sparse-checkout-cone-mode: false
         persist-credentials: false
         fetch-depth: 1
 

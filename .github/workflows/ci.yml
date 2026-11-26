@@ -1,7 +1,8 @@
 # Source CI: builds and tests without the stock APK and without any signing
 # credential, on every push and pull request. Nothing here can read a
-# secret: no job names an environment, and pull requests from forks get no
-# secrets from GitHub in any case.
+# secret, upload an artifact or use a cache, and check_workflows.py fails
+# any workflow in this directory that does. APK builds and releases run
+# from the private build-input repository (ci/trusted/, CI.md).
 name: CI
 
 on:
@@ -78,3 +79,5 @@ jobs:
         run: python3 scripts/ci/check_links.py .
       - name: Repository privacy and artifact hygiene
         run: python3 scripts/ci/check_hygiene.py --history .
+      - name: Workflow boundary (public and trusted workflows)
+        run: python3 scripts/ci/check_workflows.py .

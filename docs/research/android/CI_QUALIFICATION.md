@@ -8,6 +8,17 @@ production candidate. Both repositories, this one and the build-input
 repository, are private for the whole run. Nothing was published, and no
 tag exists in the repository.
 
+This record describes the workflows as they ran on that day, from
+`.github/workflows/` of the compat repository, with the stock input read
+through a deploy key in the `build-inputs` environment. They have since
+moved to `ci/trusted/` and run from the private build-input repository,
+with no secret, environment or deploy key left in the compat repository
+([CI.md](../../development/CI.md#two-places)); see
+[Relocation](#relocation) for the runs that qualify the new arrangement.
+The run links below point at runs whose artifacts and logs have been
+removed from the compat repository; this record and the evidence copy
+keep their results.
+
 ## Before the first push
 
 | Check | Result |
@@ -35,12 +46,8 @@ tag exists in the repository.
 | [45852169074](https://github.com/asce1062/sound-blaster-connect-compat/actions/runs/45852169074) | CI | `dbd5df5` | success | 51 s (jobs) |
 | [45852175919](https://github.com/asce1062/sound-blaster-connect-compat/actions/runs/45852175919) | Build APKs | `dbd5df5` | success | 4 min 16 s |
 
-Every run was dispatched. Pushes do not start workflow runs in this
-repository: the activity API records each push to `main` and
-`phase-e/release-infra`, and no check suite or run exists for any pushed
-commit. Actions is enabled with all actions allowed, and dispatch works.
-The cause is not isolated; the push and pull-request triggers are
-unqualified.
+Every run was dispatched. Pushes start no workflow runs; see
+[Event delivery](#event-delivery).
 
 ## Failures and corrective commits
 
@@ -83,8 +90,10 @@ Run `45847875588` at `38d4461`:
   runner image provides all but `build-tools/33.0.1`, which is installed.
 - **Variants**: all four jobs succeed. For `arm64` and `compat` the native
   libraries match the accepted hashes.
-- **Resign**: `sbc_resign-aligned.apk` is byte-identical to the stock APK
-  (`fe1ffe0c...`); payload preserved.
+- **Resign**: `resign_verify` compares the 4307 non-signature entries of
+  `sbc_resign-aligned.apk` with the stock APK (`fe1ffe0c...`), and each has
+  the same SHA-256 (`PAYLOAD-PRESERVING PASS`). The signature entries
+  differ, so the file is not the stock file; the payload is.
 - **Identity**: `compat` is `com.creative.apps.sbconnect.compat`,
   versionName `1.04.02-compat.0.1.0`, versionCode 1000.
 - **Access**: the APK artifacts are uploaded only because the repository
@@ -112,7 +121,7 @@ commits differ in workflow and documentation files only), compared with
 
 | Variant | Unsigned | Debug-signed (`--ignore-signatures`) |
 |---|---|---|
-| `resign` | byte-identical | equivalent, 0 entries differing |
+| `resign` | 4307 non-signature entries identical, each equal to the stock APK's | equivalent, 0 entries differing |
 | `arm64` | 4309 entries, same names, methods and bytes; order differs | same |
 | `compat` | 4309 entries, same names, methods and bytes; order differs | same |
 | `modernize` | 4307 entries, same names, methods and bytes; order differs | same |
@@ -198,6 +207,51 @@ Run `45850303253` checked the production candidate itself:
 The draft job then adds the notes and the inventory. After the run, the
 APK asset still has SHA-256 `63dcd889...`.
 
+## Event delivery
+
+Pushes and pull requests start no workflow runs, in this repository or in
+any other repository of the account. Dispatch (`workflow_dispatch`) works.
+
+| Check | Result |
+|---|---|
+| events API, every repository of the account | no event after 2026-11-25T10:07:40Z |
+| activity API | records each push, including the probe below |
+| probe push, branch `ci/push-probe`, commit `2e106cd` | 0 workflow runs, 0 check suites |
+| probe draft pull request into `main` | 0 `pull_request` runs, 0 check suites |
+| workflow files | `ci.yml` declares `push`, `pull_request` and `workflow_dispatch` with no branch or path filter, and is enabled |
+| Actions settings | enabled, all actions allowed |
+| commit messages | no `[skip ci]` or similar annotation |
+| push credential | the account's own OAuth token through `gh`, not `GITHUB_TOKEN` (whose pushes start no runs by design) |
+| account | the public profile resolves (HTTP 200); no flag is visible |
+| GitHub status | every component operational |
+
+The repository and workflow configuration do not explain it, and GitHub
+records the pushes without creating the events that start runs. The cause
+is on GitHub's side of the account and needs GitHub Support. Until it is
+resolved, every run is dispatched:
+
+```sh
+gh workflow run ci.yml --ref <branch>
+```
+
+The push and pull-request triggers stay declared, so they take effect
+without a change once events are delivered.
+
+## Relocation
+
+A public compat repository exposes its artifacts, logs and caches to
+anyone, and its pull requests can restore caches of the base branch. The
+APK workflows therefore moved to `ci/trusted/` and run from the private
+build-input repository, which checks out the compat source at a requested
+commit and refuses to run when its own workflow files differ from
+`ci/trusted/` at that commit ([CI.md](../../development/CI.md#trusted-builds)).
+The compat repository keeps source CI only; `check_workflows.py` holds that
+boundary.
+
+Before the compat repository is made public, its earlier artifacts,
+caches, APK pipeline runs, environments, secrets, variables and the deploy
+key into the build-input repository are removed.
+
 ## Result
 
 | Verdict | Basis |
@@ -209,6 +263,6 @@ APK asset still has SHA-256 `63dcd889...`.
 | PRODUCTION_SIGNING_BOUNDARY_PASS | release mode fails closed without the production secrets; mode `local` verifies the locally signed APK with no key in CI |
 | RELEASE_CANDIDATE_PASS | `63dcd889...` from `596f3bb`, certificate `3c726afa...`, unchanged, verified by CI against the runner's own build |
 
-Limitation: pushes start no workflow runs (see [Runs](#runs)). The two
-drafts stay unpublished in the private repository. Publishing one, and
-the repository's visibility, remain the operator's decisions.
+Limitation: pushes start no workflow runs ([Event delivery](#event-delivery)).
+The two drafts stay unpublished in the private repository. Publishing one,
+and the repository's visibility, remain the operator's decisions.

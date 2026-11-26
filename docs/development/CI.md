@@ -1,19 +1,40 @@
 # Continuous integration
 
-The four GitHub Actions workflows, what each may access, how they are set
-up, and how to run each check locally. Signing is in [SIGNING.md](SIGNING.md),
-the release process in [RELEASE.md](RELEASE.md).
+The GitHub Actions workflows, where each runs, what each may access, how
+they are set up, and how to run each check locally. Signing is in
+[SIGNING.md](SIGNING.md), the release process in [RELEASE.md](RELEASE.md).
 
-## Workflows
+## Two places
 
-| Workflow | Trigger | Stock APK | Secrets | Produces |
-|---|---|---|---|---|
-| [`ci.yml`](../../.github/workflows/ci.yml) | every push and pull request, dispatch | no | none | test results, native library hashes |
-| [`build-apk.yml`](../../.github/workflows/build-apk.yml) | push to `main`, dispatch, called by `release.yml` | yes, from the private input repository | input deploy key (`build-inputs`) | the four variants; artifacts only while the repository is private |
-| [`release.yml`](../../.github/workflows/release.yml) | tag `v*`, dispatch | through `build-apk.yml` | signing key (`release` or `release-rehearsal`), signing job only; none in mode `local` | signed APK, `.sha256`, `.json`, notes, inventory, a draft release; in mode `local`, verification of the operator's draft |
-| [`verify-release.yml`](../../.github/workflows/verify-release.yml) | called by `release.yml`, dispatch | no | none | verification report |
+| Where | Workflows | Holds |
+|---|---|---|
+| this repository (public) | [`ci.yml`](../../.github/workflows/ci.yml) | source only: no secret, no environment, no variable, no artifact, no cache |
+| the private build-input repository | the trusted workflows, copied from [`ci/trusted/`](../../ci/trusted) | the stock APK, the trusted workflows, the rehearsal signing key, private artifacts and private draft releases |
 
-### Source CI
+An APK contains the stock app ([NOTICE.md](../../NOTICE.md)). The workflows
+that build, sign or verify one hand the unsigned APK and the signed APK from
+job to job as artifacts. Artifacts, caches and logs of a public repository
+are readable by anyone, so those workflows run from the private
+build-input repository, and this repository holds nothing they produce. The
+only APK this repository distributes is a release asset the operator
+attaches to a draft release and publishes ([RELEASE.md](RELEASE.md)).
+
+| Workflow | Runs from | Trigger | Stock APK | Secrets | Produces |
+|---|---|---|---|---|---|
+| [`ci.yml`](../../.github/workflows/ci.yml) | this repository | every push and pull request, dispatch | no | none | test results, native library hashes |
+| [`build-apk.yml`](../../ci/trusted/build-apk.yml) | build-input repository | dispatch, called by `release.yml` | yes, from the repository it runs in | none | the four variants as private artifacts |
+| [`release.yml`](../../ci/trusted/release.yml) | build-input repository | dispatch | through `build-apk.yml` | the rehearsal key (`release-rehearsal`), signing job only; none in mode `local` | a private draft release with the signed APK, `.sha256`, `.json`, notes and inventory; in mode `local`, verification of the operator's private draft |
+| [`verify-release.yml`](../../ci/trusted/verify-release.yml) | build-input repository | called by `release.yml`, dispatch | no | none | verification report |
+
+[`check_workflows.py`](../../scripts/ci/check_workflows.py) keeps the
+boundary: it fails a workflow in `.github/workflows/` that reads a secret,
+names an environment, uploads an artifact, uses a cache, has a
+`pull_request_target`, `workflow_run` or `workflow_call` trigger or grants a
+write permission, and a workflow in `ci/trusted/` that has an event trigger,
+skips the trusted-definition action or uploads an artifact without the
+private-repository guard.
+
+## Source CI
 
 `ci.yml` needs neither the stock APK nor a credential, so it runs on pull
 requests from anyone:
@@ -22,24 +43,42 @@ requests from anyone:
 |---|---|
 | Host regression, Linux and Windows | the portable CtProtocol core and all seven host suites ([TESTING.md](TESTING.md)) |
 | Native libraries, arm64-v8a and x86 | builds `patches/arm64/native` with the pinned NDK; [`check_elf.py`](../../scripts/ci/check_elf.py) checks ELF class and machine, minimum `PT_LOAD` alignment (16 KiB for 64-bit, 4 KiB for 32-bit), `DT_NEEDED` and the exported symbols exactly, and for arm64-v8a the accepted SHA-256s, all against [`tests/native/expected_abi.json`](../../tests/native/expected_abi.json) |
-| Pins, links, privacy | [`check_pins.py`](../../scripts/ci/check_pins.py): every action pinned to a commit SHA, the tool pins well formed, the apktool and uber-apk-signer downloads match their SHA-256; [`check_links.py`](../../scripts/ci/check_links.py): every relative link and anchor in the Markdown resolves; [`check_hygiene.py`](../../scripts/ci/check_hygiene.py): no APK, native binary, dex, jar, keystore or key file is tracked, no decoded app tree, no file over 1 MiB, no private key, MAC address, private IPv4 address, local user path or personal email in tracked files, and every commit author and committer email is a noreply address |
+| Pins, links, privacy, workflow boundary | [`check_pins.py`](../../scripts/ci/check_pins.py): every action pinned to a commit SHA, the tool pins well formed, the apktool and uber-apk-signer downloads match their SHA-256; [`check_links.py`](../../scripts/ci/check_links.py): every relative link and anchor in the Markdown resolves; [`check_hygiene.py`](../../scripts/ci/check_hygiene.py): no APK, native binary, dex, jar, keystore or key file is tracked, no decoded app tree, no file over 1 MiB, no private key, MAC address, private IPv4 address, local user path or personal email in tracked files, and every commit author and committer email is a noreply address; [`check_workflows.py`](../../scripts/ci/check_workflows.py): the boundary above |
 
 The accepted arm64 hashes are the libraries verified on hardware. A
 toolchain or source change that moves them fails the native job until the
 new libraries are verified and the hashes are changed with a recorded
 reason ([NATIVE_LIBRARIES.md](../technical/NATIVE_LIBRARIES.md)).
 
+## Trusted builds
+
+The trusted workflows are kept in [`ci/trusted/`](../../ci/trusted), where
+they are reviewed with the source, and copied unchanged into
+`.github/workflows/` of the build-input repository, where they run. Every
+run takes `ref`, the full SHA of the compat commit to build, and each job:
+
+1. checks out that commit of the compat source from the repository named
+   by the variable `SBC_SOURCE_REPOSITORY`;
+2. runs the [trusted-definition](../../.github/actions/trusted-definition/action.yml)
+   action, which stops the job when the repository it runs in is public,
+   when the checkout is not `ref`, or when the running repository's workflow
+   files differ from `ci/trusted/` at `ref`. A run therefore executes only
+   the definition published with the source it builds.
+
+The stock APK is read from the repository the workflow runs in, with the
+workflow's own read-only token; no deploy key exists.
+
 ### APK build
 
 `build-apk.yml` builds `resign`, `modernize`, `arm64` and `compat` in four
-parallel jobs. Each job:
+parallel jobs. Each job, after the two steps above:
 
 1. installs the pinned JDK and the SDK packages the runner image lacks, and
    checks every package's revision ([caching](#caching));
-2. fetches the stock APK from the private input repository with a read-only
-   deploy key and checks its SHA-256 against `apk_input_sha256` in
-   `CMakeLists.txt` before anything reads it; the input checkout is deleted
-   in the same step sequence;
+2. takes the stock APK ([stock-input](../../.github/actions/stock-input/action.yml))
+   and checks its SHA-256 against `apk_input_sha256` in `CMakeLists.txt`
+   before anything reads it; the input checkout is deleted in the same
+   action;
 3. fetches the tool jars with `check_pins.py --download` and checks them
    against their pins (the SDK's CMake 3.22.1 cannot write a
    `file(DOWNLOAD)` output on the Linux runner);
@@ -47,42 +86,42 @@ parallel jobs. Each job:
    builds `apk-<variant>`;
 5. for `arm64` and `compat`, checks the native libraries against the
    accepted hashes;
-6. writes the APK SHA-256s and [content digests](#equivalent-builds) to the
-   job summary.
-
-The stock APK never enters this repository or its history. The workflow
-uploads APKs only while the repository is private, because an APK contains
-the stock app ([NOTICE.md](../../NOTICE.md)).
+6. writes the source commit, the APK SHA-256s and the
+   [content digests](#equivalent-builds) to the job summary, and uploads
+   the APKs as artifacts kept 7 days. Every upload step also requires a
+   private repository.
 
 ### Release
 
-`release.yml` runs five jobs, each with only the permissions it needs:
+`release.yml` runs six jobs, each with only the permissions it needs:
 
 | Job | Permissions | Does |
 |---|---|---|
-| plan | `contents: read` | a tag run: the tag must equal `v<project VERSION>`, so a labelled tag is refused; a dispatch in mode `release` must carry a pre-release label; selects the environment |
-| build | `contents: read` | `build-apk.yml` for `compat` only, uploads the unsigned APK, `release.env` and the native libraries with `SHA256SUMS` |
-| sign | `contents: read`, environment `release` or `release-rehearsal` | checks the inputs' checksums and the label, decodes the keystore into the runner's temporary directory (mode 600), runs the signing driver ([SIGNING.md](SIGNING.md#pipeline)), deletes the keystore in a step that always runs |
+| plan | `contents: read` | a dispatch in mode `release` must carry a pre-release label; mode `local` must name a draft `v<version>...`; selects the environment |
+| build | `contents: read` | `build-apk.yml` for `compat` only, uploads the unsigned APK, `release.env` and the native libraries with `SHA256SUMS` (kept 1 day) |
+| sign | `contents: read`, environment `release` or `release-rehearsal` | not in mode `local`; checks the inputs' checksums and the label, decodes the keystore into the runner's temporary directory (mode 600), runs the signing driver ([SIGNING.md](SIGNING.md#pipeline)), deletes the keystore in a step that always runs |
+| collect | `contents: write` (reading a draft requires it), no secrets, no checkout | mode `local` only; downloads exactly one APK with its `.sha256` and `.json` from the named draft and refuses a published release |
 | verify | `contents: read`, `actions: read`, no secrets | `verify-release.yml` |
-| draft | `contents: write`, no secrets | generates the notes and the dependency and license inventory, refuses an existing release of the same name, creates a draft release |
+| draft | `contents: write`, no secrets | generates the notes and the dependency and license inventory; creates a private draft release, or in mode `local` adds them to the operator's draft |
 
 Release mode and test-release mode have separate signing steps, each naming
 only its own secrets, so a missing production secret fails the job and can
-never fall back to the rehearsal key.
+never fall back to the rehearsal key. Production signing is local: the
+`release` environment holds no signing secret, so release mode stops at its
+keystore step.
 
-Mode `local` (dispatch only, input `release`) serves the local signing
-route: the production key never enters CI. The operator attaches the
-locally signed APK, its `.sha256` and its `.json` to a draft release and
-names that draft. The sign job is skipped; a `collect` job (`contents:
-write`, which reading a draft requires, no secrets, no checkout) downloads
-exactly one APK with both files from the draft and refuses a published
-release. `verify-release.yml` then checks it in release mode against this
-run's own unsigned build, so the payload check proves the APK holds what
-this commit builds. The draft job leaves the operator's three files as they
-are and adds the notes and the inventory. A draft named exactly
-`v<VERSION>` must also carry that tag in its `.json`. Nothing is published: the operator
-reviews the draft and publishes it. The sign step and the build target
-produce the same signed bytes from the same inputs
+Mode `local` serves the local signing route: the production key never
+enters CI. The operator attaches the locally signed APK, its `.sha256` and
+its `.json` to a draft release of the build-input repository and names that
+draft. `verify-release.yml` checks it in release mode against the run's own
+unsigned build of `ref`, so the payload check proves the APK holds what that
+commit builds. The draft job leaves the operator's three files as they are
+and adds the notes and the inventory. A draft named exactly `v<VERSION>`
+must also carry that tag in its `.json`. The notes list the changes up to
+the APK's source commit and, apart from them, the commits from there to
+`ref`. The operator then copies the verified draft's files to the public
+draft release ([RELEASE.md](RELEASE.md#each-release)). The sign step and the
+build target produce the same signed bytes from the same inputs
 ([RELEASE_PIPELINE_REHEARSAL.md](../research/android/RELEASE_PIPELINE_REHEARSAL.md)).
 
 `verify-release.yml` repeats verification without any secret: checksums,
@@ -90,64 +129,79 @@ the signature, alignment, package metadata, native libraries and payload
 against the unsigned APK (`verify_signed_apk.cmake`), then
 [`verify_release.py`](../../scripts/ci/verify_release.py). In release mode
 the expected certificate is `signing/release-certificate.sha256` from the
-repository; a missing file fails the job, so no other certificate passes.
+source; a missing file fails the job, so no other certificate passes.
 
 ## Trust model
 
-- No workflow has a `pull_request_target` or `workflow_run` trigger, and
-  only `ci.yml` runs on pull requests. Pull-request code never runs with the
-  input deploy key or a signing key.
-- Secrets live in environments, not at repository level. An environment's
-  deployment policy admits only `main` and `v*` tags, so a dispatch from any
-  other branch is refused before a step runs.
-- Production signing is local: the `release` environment holds no signing
-  secret, so release mode fails at its keystore step, and mode `local`
-  verifies the operator's signed APK without a key. A required reviewer on
-  `release`, where the account's plan allows one, adds a person's approval
-  to each run that would use production secrets.
+- This repository has no secret, environment or variable, and no deploy key
+  of it reaches the build-input repository. A workflow at any commit of this
+  repository, an old tag included, has no way to fetch the stock APK or a
+  signing key.
+- Only `ci.yml` runs here, on pushes and pull requests, and it reads no
+  secret and writes nothing but logs.
+- The trusted workflows run in a private repository that only the
+  maintainer can push to, from its default branch, and only the published
+  definition of the commit they build.
+- Secrets live in environments of the build-input repository, not at
+  repository level. Their deployment policy admits only its `main` branch.
 - Every checkout uses `persist-credentials: false`; the workflow token is
-  read-only except in the draft job.
+  read-only except in the collect and draft jobs.
 - Every external action is pinned to a full commit SHA with its version in a
-  comment; `check_pins.py` fails on a tag or branch reference.
+  comment; `check_pins.py` fails on a tag or branch reference, in both
+  places.
 
 ## Setup
 
-Done once by the operator in the repository settings. None of these values
-enter the repository.
+Done once by the operator. None of these values enter the repository.
 
-1. **Input repository.** A separate private repository (for example
-   `sbconnect-build-inputs`) holding only `SBConnect_v1.04.02.apk` at its
-   root. Add a read-only deploy key to it; keep the private half for step 3.
-2. **Variable** (repository level): `SBC_INPUTS_REPOSITORY` = `owner/name`
-   of the input repository; `SBC_TEST_RELEASE_CERT_SHA256` = the disposable
-   rehearsal certificate's fingerprint.
-3. **Environment `build-inputs`**: deployment branches `main` and tags `v*`;
-   secret `SBC_INPUTS_DEPLOY_KEY` = the deploy key's private half.
-4. **Environment `release-rehearsal`**: deployment branches `main` and tags
-   `v*`; secrets `SBC_TEST_RELEASE_KEYSTORE_B64` (a disposable keystore,
-   base64), `SBC_TEST_RELEASE_KEYSTORE_PASS`, optional
-   `SBC_TEST_RELEASE_KEY_PASS`; variables `SBC_TEST_RELEASE_KEY_ALIAS`,
-   `SBC_TEST_RELEASE_CERT_SHA256`.
-5. **Environment `release`**: deployment tags `v*` and branch `main`, a
-   required reviewer where the account's plan allows one on a private
-   repository; secrets `SBC_RELEASE_KEYSTORE_B64`,
-   `SBC_RELEASE_KEYSTORE_PASS`, optional `SBC_RELEASE_KEY_PASS`; variables
-   `SBC_RELEASE_KEY_ALIAS`, `SBC_RELEASE_CERT_SHA256`. Leave the secrets
-   unset to keep production signing on the local route
-   ([RELEASE.md](RELEASE.md#each-release)); the release workflow then fails
-   at the signing job in release mode and never signs with another key.
+This repository: nothing. It has no secret, environment or variable.
+
+The build-input repository (private, for example `sbconnect-build-inputs`):
+
+1. **Contents.** `SBConnect_v1.04.02.apk` at the root of `main`, and the
+   files of `ci/trusted/` in `.github/workflows/`, unchanged. Copy them
+   again whenever `ci/trusted/` changes; a run against a commit whose
+   `ci/trusted/` differs stops at the trusted-definition step.
+2. **Variables** (repository level): `SBC_SOURCE_REPOSITORY` = `owner/name`
+   of this repository; `SBC_TEST_RELEASE_CERT_SHA256` = the disposable
+   rehearsal certificate's fingerprint. While this repository is private,
+   the build-input repository's token cannot read it; then push the commit
+   to build to a branch of the build-input repository
+   (`git push <build-input remote> <sha>:refs/heads/source`) and set
+   `SBC_SOURCE_REPOSITORY` to the build-input repository itself.
+3. **Environment `release-rehearsal`**: deployment branch `main`; secrets
+   `SBC_TEST_RELEASE_KEYSTORE_B64` (a disposable keystore, base64),
+   `SBC_TEST_RELEASE_KEYSTORE_PASS`, optional `SBC_TEST_RELEASE_KEY_PASS`;
+   variables `SBC_TEST_RELEASE_KEY_ALIAS`, `SBC_TEST_RELEASE_CERT_SHA256`.
+4. **Environment `release`**: deployment branch `main`; variables
+   `SBC_RELEASE_KEY_ALIAS`, `SBC_RELEASE_CERT_SHA256`; no secrets, which
+   keeps production signing on the local route
+   ([RELEASE.md](RELEASE.md#each-release)).
 
 The base64 form of a keystore: `base64 -w0 <keystore>` or, in PowerShell,
-`[Convert]::ToBase64String([IO.File]::ReadAllBytes('<keystore>'))`. Paste it
-into the secret field directly; do not write it to a file.
+`[Convert]::ToBase64String([IO.File]::ReadAllBytes('<keystore>'))`. Pipe it
+into `gh secret set` or paste it into the secret field; do not write it to
+a file.
+
+### Event delivery
+
+Since 2026-11-25, GitHub creates no push or pull-request events for the
+account that owns these repositories. Pushes are recorded in each
+repository's activity log, but no event and no check suite follows, so
+`ci.yml` does not start on its own
+([record](../research/android/CI_QUALIFICATION.md#event-delivery)). Until
+that is restored, start source CI by hand after each push:
+`gh workflow run ci.yml --ref <branch>`. The trusted workflows are
+dispatched in any case.
 
 ## Caching
 
-Only verified, immutable inputs are cached; nothing signed or built is.
+Only verified, immutable inputs are cached, and only in the build-input
+repository; nothing signed or built is.
 
 | Cache | Key | Verified after restore |
 |---|---|---|
-| apktool and uber-apk-signer jars | the SHA-256 of `CMakeLists.txt`, which holds their versions and SHA-256 pins | configure checks each jar's SHA-256 and stops on a mismatch |
+| apktool and uber-apk-signer jars | the SHA-256 of `CMakeLists.txt`, which holds their versions and SHA-256 pins | `check_pins.py --download` and configure check each jar's SHA-256 and stop on a mismatch |
 | JDK | `setup-java`'s own tool cache, by exact version | |
 
 Android SDK packages are not cached. The runner image preinstalls most of
@@ -183,7 +237,7 @@ incremental; caching cannot shorten it without caching built output. The
 workflow runs variants in parallel jobs instead, so the wall time of a
 build is about that of its slowest variant.
 
-On the GitHub-hosted `ubuntu-24.04` runner, from the first runs
+On the GitHub-hosted `ubuntu-24.04` runner
 ([record](../research/android/CI_QUALIFICATION.md#runner-build-times)):
 
 | Job | Time |
@@ -226,6 +280,7 @@ production candidate `63dcd889...` have one such digest
 ```sh
 python3 scripts/ci/check_hygiene.py --history .
 python3 scripts/ci/check_links.py .
+python3 scripts/ci/check_workflows.py .
 python3 scripts/ci/check_pins.py --download /tmp/sbc-tools .
 python3 scripts/ci/check_elf.py arm64-v8a build/native/arm64-v8a/lib
 python3 scripts/ci/compare_apks.py build/sbc_compat.apk other/sbc_compat.apk
@@ -243,3 +298,5 @@ The host suites: [TESTING.md](TESTING.md).
 2. The jar cache key changes with `CMakeLists.txt`.
 3. If the native libraries change, verify them and record the reason before
    changing the accepted hashes.
+4. If a file in `ci/trusted/` changed, copy it to the build-input
+   repository.

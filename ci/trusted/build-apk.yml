@@ -1,22 +1,30 @@
 # Trusted APK build: all four variants from the SHA-256-pinned stock APK.
 #
-# The stock APK comes from the private build-input repository through the
-# `build-inputs` environment, whose deployment policy admits only main and
-# v* tags. Pull requests never run this workflow, and a dispatch from any
-# other ref is refused by the environment before a step runs, so the input
-# credential never reaches untrusted code.
+# Canonical copy: ci/trusted/build-apk.yml in the compat repository. It runs
+# from .github/workflows/ of the private build-input repository, which holds
+# the stock APK, so the APK, every build output and every artifact stay
+# private. Each job checks out the compat source (repository variable
+# SBC_SOURCE_REPOSITORY) at the requested commit, then the trusted-definition
+# action refuses a public repository and any workflow file that differs from
+# ci/trusted/ at that commit (docs/development/CI.md, trusted builds).
 #
-# Variants are built in parallel jobs. APKs are uploaded as workflow artifacts
-# only while the repository is private, or when the release workflow asks for
-# the unsigned compat APK it signs.
+# Variants are built in parallel jobs and uploaded as private artifacts,
+# except when the release workflow asks for the unsigned compat APK it signs.
 name: Build APKs
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Compat source commit to build (full SHA)
+        type: string
+        required: true
   workflow_call:
     inputs:
+      ref:
+        description: Compat source commit to build (full SHA)
+        type: string
+        required: true
       variants:
         description: JSON list of variants to build
         type: string
@@ -40,7 +48,6 @@ permissions:
 jobs:
   variant:
     name: ${{ matrix.variant }}
-    environment: build-inputs
     strategy:
       fail-fast: false
       matrix:
@@ -53,9 +60,15 @@ jobs:
       VARIANT: ${{ matrix.variant }}
       PRERELEASE: ${{ inputs.prerelease || '' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Source (compat repository at the requested commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ vars.SBC_SOURCE_REPOSITORY }}
+          ref: ${{ inputs.ref }}
           persist-credentials: false
+      - uses: ./.github/actions/trusted-definition
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Validate the pre-release label
         run: |
@@ -68,9 +81,6 @@ jobs:
 
       - name: Stock APK (verified against the pin before any patch)
         uses: ./.github/actions/stock-input
-        with:
-          repository: ${{ vars.SBC_INPUTS_REPOSITORY }}
-          deploy-key: ${{ secrets.SBC_INPUTS_DEPLOY_KEY }}
 
       # The jars are immutable: CMakeLists.txt holds their versions and SHA-256
       # pins, so any pin change is a new key, and configure re-verifies every
@@ -114,6 +124,7 @@ jobs:
         name: Hashes
         run: |
           {
+            echo "source $(git rev-parse HEAD)"; echo
             echo "| file | SHA-256 | content digest (any order) |"; echo "|---|---|---|"
             for f in build/sbc_"$VARIANT"*.apk; do
               d="$(python3 scripts/ci/compare_apks.py --digest --ignore-signatures --any-order "$f" | cut -d' ' -f1)"
@@ -140,8 +151,8 @@ jobs:
           cp build/sbc_compat.apk build/release.env release-inputs/
           cp build/native/arm64-v8a/lib/*.so release-inputs/native/
           (cd release-inputs && sha256sum sbc_compat.apk release.env native/*.so > SHA256SUMS)
-      - name: Upload the release inputs
-        if: inputs.release-inputs && matrix.variant == 'compat'
+      - name: Upload the release inputs (private repository only)
+        if: github.event.repository.private && inputs.release-inputs && matrix.variant == 'compat'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-inputs

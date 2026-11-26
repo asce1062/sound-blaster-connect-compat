@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dependency integrity checks.
 
-  - Every `uses:` in .github/workflows/ and .github/actions/ names a local
+  - Every `uses:` in .github/workflows/, ci/trusted/ and .github/actions/ names a local
     action (./...) or an external action pinned to a full 40-hex commit SHA.
   - The tool pins in CMakeLists.txt (apktool, uber-apk-signer, the stock APK
     hash) are well formed: a version and a 64-hex SHA-256 each.
@@ -40,6 +40,7 @@ def cmake_pins(root):
 def check_uses(root):
     problems, count = [], 0
     files = glob.glob(os.path.join(root, ".github", "workflows", "*.y*ml"))
+    files += glob.glob(os.path.join(root, "ci", "trusted", "*.y*ml"))
     files += glob.glob(os.path.join(root, ".github", "actions", "**", "action.y*ml"), recursive=True)
     for path in sorted(files):
         with open(path, encoding="utf-8") as f:

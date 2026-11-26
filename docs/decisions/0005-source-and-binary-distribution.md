@@ -1,6 +1,6 @@
 # 0005. Offer source builds and signed binaries as first-class outputs
 
-Status: Accepted, not yet implemented
+Status: Accepted; both routes implemented, the first signed release is an unpublished draft
 
 ## Context
 
@@ -17,9 +17,10 @@ Both routes are supported as equal outputs:
   copy of the stock APK, as documented in
   [BUILDING.md](../development/BUILDING.md). This route works today.
 - **Signed binary:** a release APK signed with the project's release key and
-  published with its checksums. The release key, application identity and
-  release workflow do not exist yet; they will be recorded in separate
-  decisions when they are established.
+  published with its checksums as a GitHub release of this repository. The
+  application identity is [0008](0008-separate-distribution-identity.md),
+  the signing pipeline and key [0011](0011-release-signing-modes.md), and
+  the release automation [0012](0012-trusted-builds-in-private-repository.md).
 
 ## Consequences
 
@@ -27,5 +28,6 @@ Both routes are supported as equal outputs:
   release infrastructure.
 - The two routes produce differently signed APKs, which Android treats as
   different signers. Switching between them requires an uninstall.
-- Whether and how a binary containing the stock app's code may be published
-  is an open question for the project owner. This record does not settle it.
+- A signed binary contains the stock app's code in modified form. Publishing
+  one is the project owner's decision; the release route ends at a draft
+  release, and this record does not make that decision.

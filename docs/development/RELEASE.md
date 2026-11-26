@@ -21,7 +21,7 @@ decisions.
 | production key | created 2026-11-26 on the operator's machine, outside every repository; two offline copies, each byte-identical to the original (SHA-256) |
 | published certificate fingerprint | `3c726afa...` in [`signing/release-certificate.sha256`](../../signing/release-certificate.sha256) ([SIGNING.md](SIGNING.md#the-production-key)) |
 | production-signed build | `sbconnect-compat-v0.1.0.apk`, package `com.creative.apps.sbconnect.compat`, SHA-256 `63dcd8892ef612191dfd253f5bfd5c45fc0d8a85c42c261b40f152bf922a1543`, from `596f3bb`; all four release gates passed ([record](../research/android/PRODUCTION_CANDIDATE.md)). It supersedes `81b32401...` from `25b7f61`, built under the first application ID and never installed |
-| source CI, APK build, release and verification workflows | qualified on GitHub-hosted runners in the private repository: source CI, the four variants, a test-release rehearsal to a draft, release mode failing closed without production secrets, and mode `local` verifying `63dcd889...` against the runner's own build ([record](../research/android/CI_QUALIFICATION.md)). Pushes start no runs; every run was dispatched |
+| source CI, APK build, release and verification workflows | qualified on GitHub-hosted runners: source CI, the four variants, a test-release rehearsal to a draft, release mode failing closed without production secrets, and mode `local` verifying `63dcd889...` against the runner's own build ([record](../research/android/CI_QUALIFICATION.md)). The APK workflows now run from the private build-input repository ([CI.md](CI.md#two-places)). Pushes start no runs; every run is dispatched ([CI.md](CI.md#event-delivery)) |
 | user install route (file manager, system installer, Play Protect on) | passed for the production candidate `63dcd889...` on a Pixel 8 (API 37): "App scan recommended", scan, "This app looks safe", installed through the system installer ([record](../research/android/PRODUCTION_CANDIDATE.md)). The result covers that APK and certificate only |
 
 A release is not published until the
@@ -112,10 +112,9 @@ the end-to-end check of the new key.
    python3 scripts/release/release_notes.py changelog --version <VERSION> -o CHANGELOG.md
    ```
 
-3. Build and sign from a clean checkout of that commit, by one of two
-   routes.
-
-   **Local route** (the production key stays on the operator's machine):
+3. Build and sign from a clean checkout of that commit. The production key
+   stays on the operator's machine; no workflow holds it, and the release
+   workflow refuses mode `release` without a pre-release label.
 
    ```powershell
    cmake --preset default
@@ -128,30 +127,37 @@ the end-to-end check of the new key.
    Remove-Item Env:SBC_RELEASE_KEYSTORE_PASS
    ```
 
-   **CI route**: push the tag `v<VERSION>`. The release workflow builds,
-   signs in the `release` environment, verifies and prepares a draft release
-   ([CI.md](CI.md#release)). It needs the production secrets in that
-   environment.
 4. Check the outputs: `sha256sum -c <apk>.sha256`, and
    `python3 scripts/ci/verify_release.py --apk <apk> --mode release --cert <fingerprint>`.
    `<apk>.json` shows `source_commit` equal to the release commit and
    `source_uncommitted_changes` false.
 5. Run the [release gates](#release-gates) on that APK.
-6. Local route: create a draft release `v<VERSION>` holding the APK, its
-   `.sha256` and `.json` unchanged, and dispatch the release workflow with
-   mode `local` and `release` set to that name:
+6. In the private build-input repository, create a draft release
+   `v<VERSION>` holding the APK, its `.sha256` and `.json` unchanged, and
+   dispatch the release workflow there with mode `local`, `release` set to
+   that name and `ref` set to the commit to verify against (the release
+   commit, or a later commit whose build output is unchanged):
 
    ```sh
-   gh release create v<VERSION> --draft --target <release commit> sbconnect-compat-v<VERSION>.apk*
-   gh workflow run release.yml --ref main -f mode=local -f release=v<VERSION>
+   gh release create v<VERSION> --repo <build-input repository> --draft sbconnect-compat-v<VERSION>.apk*
+   gh workflow run release.yml --repo <build-input repository> -f ref=<full commit SHA> -f mode=local -f release=v<VERSION>
    ```
 
-   The workflow verifies the APK against its own unsigned build of the
-   commit with no key ([CI.md](CI.md#release)) and adds the notes and the
-   inventory to the draft. Any byte change after signing invalidates the
+   The workflow verifies the APK against its own unsigned build of `ref`
+   with no key ([CI.md](CI.md#release)) and adds the notes and the
+   inventory to that draft. Any byte change after signing invalidates the
    signature; re-run the target instead of editing an output.
-7. Publishing the draft creates the tag `v<VERSION>` at its target commit.
-   That is the operator's decision.
+7. Copy the five assets and the notes of that private draft unchanged to a
+   draft release `v<VERSION>` of the compat repository, targeting the
+   release commit, then download each asset back and compare its SHA-256:
+
+   ```sh
+   gh release create v<VERSION> --repo <compat repository> --draft --target <release commit> --title "SB Connect Compat v<VERSION>" --notes-file notes.md <assets>
+   ```
+
+8. Publishing the compat draft creates the tag `v<VERSION>` at its target
+   commit. That is the operator's decision. Delete the private draft once
+   the public one is verified.
 
 ## Update qualification
 
@@ -161,8 +167,7 @@ install and keeps its data, without spending a version number:
 1. Install the release candidate (versionCode `C`) and use the app so it
    stores state (permissions granted, a paired speaker remembered).
 2. Build the same commit with `-Dsbc_prerelease=rehearsal.1` and sign it with
-   the production key (`apk-compat-release`, or the release workflow
-   dispatched with mode `release` and label `rehearsal.1`). It has
+   the production key (`apk-compat-release`). It has
    versionCode `C`, versionName `...-rehearsal.1` and file
    `sbconnect-compat-v<VERSION>-rehearsal.1.apk`.
 3. Install it over the candidate (`adb install -r`, or the file manager). It
@@ -190,7 +195,7 @@ real version number.
 
 In CI, the release workflow dispatched with mode `test-release` rehearses
 the whole automated path with the disposable key in the `release-rehearsal`
-environment; its draft is named `<tag>-test-release.<run number>` and marked
+environment of the build-input repository; its draft is named `<tag>-test-release.<run number>` and marked
 pre-release.
 
 A rehearsal shows that signing, verification and updates behave on the

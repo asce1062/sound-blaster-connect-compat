@@ -62,8 +62,10 @@ cmake --build build --target apk-compat-release
 unset SBC_RELEASE_KEYSTORE_PASS
 ```
 
-`read -s` keeps the password out of the shell history. In CI the values come
-from environment secrets ([RELEASE.md](RELEASE.md)).
+`read -s` keeps the password out of the shell history. Production signing
+is local only; in CI, only the disposable test-release key is used, from
+environment secrets of the private build-input repository
+([CI.md](CI.md#release)).
 
 ## Pipeline
 

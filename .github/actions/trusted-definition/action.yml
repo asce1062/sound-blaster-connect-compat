@@ -1,0 +1,51 @@
+name: Trusted definition
+description: >
+  First step of every job in the trusted workflows (ci/trusted/), which run
+  from the private build-input repository with the compat source checked out
+  in the workspace. Refuses a public repository, checks that the workspace
+  holds the requested source commit, and checks that the running
+  repository's workflow files equal ci/trusted/ at that commit, so the
+  private pipeline runs only the published definition.
+inputs:
+  ref:
+    description: The compat source commit (full SHA) the job was asked to build
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Private repository, requested source commit
+      shell: bash
+      env:
+        PRIVATE: ${{ github.event.repository.private }}
+        REF: ${{ inputs.ref }}
+      run: |
+        set -euo pipefail
+        [ "$PRIVATE" = true ] || { echo "the trusted workflows run only in a private repository" >&2; exit 1; }
+        printf '%s' "$REF" | grep -qE '^[0-9a-f]{40}$' || { echo "ref must be a full commit SHA, not '$REF'" >&2; exit 1; }
+        [ "$(git rev-parse HEAD)" = "$REF" ] || { echo "the source checkout is not $REF" >&2; exit 1; }
+
+    - name: This repository's workflow files
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        path: .trusted-self
+        sparse-checkout: .github/workflows/
+        sparse-checkout-cone-mode: false
+        filter: blob:none
+        persist-credentials: false
+
+    - name: Workflow files equal ci/trusted at the source commit
+      shell: bash
+      run: |
+        set -euo pipefail
+        trap 'rm -rf .trusted-self' EXIT
+        want="$(cd ci/trusted && ls -1 -- *.yml | sort)"
+        have="$(cd .trusted-self/.github/workflows && ls -1 -- *.yml | sort)"
+        if [ "$want" != "$have" ]; then
+          echo "workflow files differ: ci/trusted has [$(echo $want)], this repository [$(echo $have)]" >&2
+          exit 1
+        fi
+        for f in $want; do
+          cmp -- "ci/trusted/$f" ".trusted-self/.github/workflows/$f" \
+            || { echo "$f differs from ci/trusted/$f at $(git rev-parse HEAD)" >&2; exit 1; }
+        done
+        echo "trusted workflows equal ci/trusted at $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"

@@ -44,8 +44,10 @@ tree or logs.
 - Release builds need the pinned build-tools (`37.0.0`) in addition to the
   debug pipeline's tools.
 - The production key, its backup and its published fingerprint are operator
-  steps; until they exist, `apk-compat-release` cannot succeed. CI signing
-  is an interface without a workflow or secrets.
+  steps. Production signing is local: no workflow holds the production key,
+  and CI verifies a locally signed APK without one (mode `local`,
+  [0012](0012-trusted-builds-in-private-repository.md)). CI signs only with
+  the disposable test-release key.
 - Debug, test-release and release APKs have different signers; moving an
   install between them requires an uninstall.
 

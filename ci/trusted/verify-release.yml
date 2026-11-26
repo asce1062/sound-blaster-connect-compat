@@ -2,6 +2,10 @@
 # environment: it checks only public facts (the certificate fingerprint, the
 # accepted native library hashes) against the artifacts of a release run.
 #
+# Canonical copy: ci/trusted/verify-release.yml in the compat repository; it
+# runs from the private build-input repository (build-apk.yml has the
+# details).
+#
 # Expected certificate:
 #   release       signing/release-certificate.sha256, committed after the key
 #                 ceremony. Missing file = failure, so no other key passes.
@@ -11,15 +15,23 @@ name: Verify release
 on:
   workflow_call:
     inputs:
+      ref:
+        description: Compat source commit (full SHA)
+        type: string
+        required: true
       mode:
         type: string
         required: true
       tag:
-        description: Release tag the APK must carry (tag-triggered releases)
+        description: Release tag the APK must carry (a draft named v<version>)
         type: string
         default: ""
   workflow_dispatch:
     inputs:
+      ref:
+        description: Compat source commit (full SHA)
+        type: string
+        required: true
       mode:
         type: choice
         options: [test-release, release]
@@ -46,7 +58,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ vars.SBC_SOURCE_REPOSITORY }}
+          ref: ${{ inputs.ref }}
           persist-credentials: false
+      - uses: ./.github/actions/trusted-definition
+        with:
+          ref: ${{ inputs.ref }}
 
       - id: tc
         uses: ./.github/actions/apk-toolchain

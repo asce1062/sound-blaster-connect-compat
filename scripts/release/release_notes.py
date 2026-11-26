@@ -2,15 +2,18 @@
 """Release notes and CHANGELOG.md from Conventional Commits.
 
     release_notes.py changelog [--version X.Y.Z] [-o CHANGELOG.md]
-    release_notes.py notes --tag <tag> [--metadata <apk>.json] [-o notes.md]
+    release_notes.py notes --tag <tag> [--metadata <apk>.json] [--verified-at <commit>] [-o notes.md]
 
 changelog  every v* tag becomes a section, newest first. Commits after the
            newest tag form the section of --version (release preparation)
            or "Unreleased". CHANGELOG.md is this output and is not edited by
            hand; the release commit regenerates it.
-notes      the commits since the tag before <tag> (up to <tag>, or HEAD when
-           the tag does not exist yet), plus the artifact facts from the
-           release metadata JSON.
+notes      the commits since the tag before <tag>, up to <tag>, or, when the
+           tag does not exist yet, up to the metadata's source commit (HEAD
+           without metadata); plus the artifact facts from the release
+           metadata JSON. With --verified-at, the commits from the source
+           commit to that commit are listed apart, as verification
+           infrastructure that is not in the APK.
 
 Merge commits are left out. Commit types map to sections; a subject that is
 not a Conventional Commit goes under "Other".
@@ -99,15 +102,18 @@ def changelog(version):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def notes(tag, metadata):
+def notes(tag, metadata, verified_at=None):
     tag_list = tags()
     exists = tag in tag_list
-    end = tag if exists else "HEAD"
+    m = json.load(open(metadata, encoding="utf-8")) if metadata else None
+    source = m["source_commit"] if m else None
+    # The changes end at the APK's own source commit, not at the commit the
+    # release was verified from.
+    end = tag if exists else (source or "HEAD")
     earlier = tag_list[tag_list.index(tag) + 1:] if exists else tag_list
     rng = f"{earlier[0]}..{end}" if earlier else end
     lines = [f"# SB Connect Compat {tag}", ""]
-    if metadata:
-        m = json.load(open(metadata, encoding="utf-8"))
+    if m:
         lines += [
             "Compatibility build of Sound Blaster Connect "
             f"{m['version_name'].split('-compat.')[0]} for current Android, installed next to the stock app as "
@@ -127,6 +133,17 @@ def notes(tag, metadata):
             "",
         ]
     lines += ["## Changes", "", *render_section(rng)]
+    if source and verified_at and git("rev-parse", verified_at).strip() != git("rev-parse", source).strip():
+        later = render_section(f"{source}..{verified_at}")
+        lines += [
+            "## Verification",
+            "",
+            f"The APK was built from `{source}` and verified against a fresh build of "
+            f"`{git('rev-parse', verified_at).strip()}`, whose payload equals it, so the commits "
+            "between the two change nothing in this APK. They are listed here, apart from its changes.",
+            "",
+            *later,
+        ]
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -139,9 +156,10 @@ def main():
     n = sub.add_parser("notes")
     n.add_argument("--tag", required=True)
     n.add_argument("--metadata")
+    n.add_argument("--verified-at", help="commit the release was verified from (default: none)")
     n.add_argument("-o", "--output")
     args = ap.parse_args()
-    text = changelog(args.version) if args.cmd == "changelog" else notes(args.tag, args.metadata)
+    text = changelog(args.version) if args.cmd == "changelog" else notes(args.tag, args.metadata, args.verified_at)
     if args.output:
         with open(args.output, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
