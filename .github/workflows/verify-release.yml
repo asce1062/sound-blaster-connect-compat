@@ -1,0 +1,114 @@
+# Independent verification of a signed APK. Holds no secret and names no
+# environment: it checks only public facts (the certificate fingerprint, the
+# accepted native library hashes) against the artifacts of a release run.
+#
+# Expected certificate:
+#   release       signing/release-certificate.sha256, committed after the key
+#                 ceremony. Missing file = failure, so no other key passes.
+#   test-release  repository variable SBC_TEST_RELEASE_CERT_SHA256
+name: Verify release
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        required: true
+      tag:
+        description: Release tag the APK must carry (tag-triggered releases)
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [test-release, release]
+        default: test-release
+      run-id:
+        description: ID of the release workflow run whose artifacts to verify
+        type: string
+        required: true
+      tag:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MODE: ${{ inputs.mode }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: tc
+        uses: ./.github/actions/apk-toolchain
+        with:
+          packages: cmake/3.22.1 build-tools/37.0.0
+
+      - name: Download the signed APK and the build's release inputs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "{signed-apk,release-inputs}"
+          path: ${{ runner.temp }}/v
+          run-id: ${{ inputs.run-id || github.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Checksums
+        working-directory: ${{ runner.temp }}/v
+        run: |
+          (cd release-inputs && sha256sum -c SHA256SUMS)
+          (cd signed-apk && sha256sum -c ./*.apk.sha256)
+
+      - id: cert
+        name: Expected certificate
+        env:
+          TEST_CERT: ${{ vars.SBC_TEST_RELEASE_CERT_SHA256 }}
+        run: |
+          if [ "$MODE" = release ]; then
+            f=signing/release-certificate.sha256
+            test -f "$f" || { echo "$f is missing: no production certificate is pinned" >&2; exit 1; }
+            cert="$(grep -oE '^[0-9a-f]{64}' "$f" | head -1)"
+          else
+            cert="$TEST_CERT"
+          fi
+          test ${#cert} -eq 64 || { echo "no expected certificate for $MODE" >&2; exit 1; }
+          echo "sha256=$cert" >> "$GITHUB_OUTPUT"
+
+      - name: Signature, alignment, metadata, libraries, payload
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+          CERT: ${{ steps.cert.outputs.sha256 }}
+          V: ${{ runner.temp }}/v
+        run: |
+          set -euo pipefail
+          apk="$(ls "$V"/signed-apk/*.apk)"
+          env_file="$V/release-inputs/release.env"
+          get() { sed -n "s/^$1=//p" "$env_file"; }
+          bt="$SDK/build-tools/37.0.0"
+          "$SDK/cmake/3.22.1/bin/cmake" "-DMODE=$MODE" "-DAPK=$apk" "-DCERT_SHA256=$CERT" \
+            "-DPACKAGE=$(get APP_ID)" "-DVERSION_CODE=$(get VERSION_CODE)" "-DVERSION_NAME=$(get VERSION_NAME)" \
+            "-DABIS=$(get RELEASE_ABIS)" "-DNATIVE_ABI=$(get NATIVE_ABI)" \
+            "-DNATIVE_LIBS=$(get NATIVE_LIBS | tr ',' '\n' | sed "s|^|$V/release-inputs/native/|" | paste -sd,)" \
+            "-DUNSIGNED=$V/release-inputs/sbc_compat.apk" "-DREF_SCRIPT=$PWD/cmake/resign_verify.cmake" \
+            "-DWORK=$RUNNER_TEMP/verify-work" \
+            "-DAPKSIGNER=$bt/apksigner" "-DZIPALIGN=$bt/zipalign" "-DAAPT2=$bt/aapt2" \
+            -P cmake/verify_signed_apk.cmake
+
+      - name: Metadata, accepted native hashes, tag
+        env:
+          CERT: ${{ steps.cert.outputs.sha256 }}
+          V: ${{ runner.temp }}/v
+        run: |
+          set -euo pipefail
+          args=()
+          [ -n "$TAG" ] && args+=(--tag "$TAG")
+          python3 scripts/ci/verify_release.py --apk "$(ls "$V"/signed-apk/*.apk)" --mode "$MODE" \
+            --cert "$CERT" --release-env "$V/release-inputs/release.env" "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"

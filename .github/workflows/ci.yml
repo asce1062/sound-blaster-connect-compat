@@ -1,0 +1,80 @@
+# Source CI: builds and tests without the stock APK and without any signing
+# credential, on every push and pull request. Nothing here can read a
+# secret: no job names an environment, and pull requests from forks get no
+# secrets from GitHub in any case.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Host regression (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure
+        run: cmake -S tests/ctprotocol -B build/host-tests
+      - name: Build
+        run: cmake --build build/host-tests --config Release
+      - name: Run the seven suites
+        run: ctest --test-dir build/host-tests -C Release --output-on-failure --no-tests=error
+
+  native:
+    name: Native libraries (${{ matrix.abi }})
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: tc
+        uses: ./.github/actions/apk-toolchain
+        with:
+          packages: cmake/3.22.1 ndk/25.1.8937393
+      - name: Build with the pinned NDK
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+        run: |
+          "$SDK/cmake/3.22.1/bin/cmake" -S patches/arm64/native -B build/native-${{ matrix.abi }} -G Ninja \
+            -DCMAKE_MAKE_PROGRAM="$SDK/cmake/3.22.1/bin/ninja" \
+            -DCMAKE_TOOLCHAIN_FILE="$SDK/ndk/25.1.8937393/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-21 -DCMAKE_BUILD_TYPE=Release
+          "$SDK/cmake/3.22.1/bin/cmake" --build build/native-${{ matrix.abi }}
+      - name: ELF, alignment, ABI and accepted hashes
+        run: python3 scripts/ci/check_elf.py ${{ matrix.abi }} build/native-${{ matrix.abi }}/lib
+      - name: Record hashes
+        run: sha256sum build/native-${{ matrix.abi }}/lib/*.so | tee -a "$GITHUB_STEP_SUMMARY"
+
+  hygiene:
+    name: Pins, links, privacy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Dependency pins
+        run: python3 scripts/ci/check_pins.py --download "$RUNNER_TEMP/tools" .
+      - name: Documentation links
+        run: python3 scripts/ci/check_links.py .
+      - name: Repository privacy and artifact hygiene
+        run: python3 scripts/ci/check_hygiene.py --history .

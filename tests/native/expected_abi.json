@@ -1,0 +1,77 @@
+{
+  "description": "Expected ELF properties of the native libraries built from patches/arm64/native/. Checked by scripts/ci/check_elf.py. accepted_sha256 are the arm64-v8a files the hardware runs validated; change them only with a recorded reason (docs/technical/NATIVE_LIBRARIES.md).",
+  "abis": {
+    "arm64-v8a": {
+      "class": 64,
+      "machine": "aarch64",
+      "min_load_align": 16384,
+      "accepted_sha256": {
+        "libsbxapplogic_ctprotocol_jni.so": "970d1744d765e80a3e4b82854add4dd1d96402f0841b0a78070f9d80432d7836",
+        "libserialport_jni.so": "ca380c7c549c197777d8b76a1c763806030992da4fe0af74e6cf47f8d9eff232"
+      }
+    },
+    "x86": {
+      "class": 32,
+      "machine": "x86",
+      "min_load_align": 4096
+    }
+  },
+  "libraries": {
+    "libsbxapplogic_ctprotocol_jni.so": {
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "exports": [
+        "JNI_OnLoad",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_cancelFileTransfer",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_commitSettings",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_decode",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getActiveProfileMega",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getActiveProfileRec",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getAudioLvl",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getBatteryLevel",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getBatteryLevelSupport",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getBatteryStatus",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getBatteryStatusSupport",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getBtAutoConnect",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getDeviceFwString",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getFileDataBlk",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getFileTransferMaxDataSize",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getFwInfo",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getGeneralInfo",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getHwBtn",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getHwBtnStatusSupport",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getHwBtnSupport",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getMaxPayloadSize",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getProfileInfoRec",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_getVoicePromptCtrl",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_hwBtnEnabled",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_releaseControl",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_resetFactoryDefault",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setActiveProfileMega",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setActiveProfileMegaVoicePreview",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setActiveProfileRec",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setActiveProfileRecVoicePreview",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setBtAutoConnect",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setFileSize",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setHwBtn",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setMalcolmParam",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setTime",
+        "Java_com_creative_logic_sbxapplogic_vendor_sbx_SbxSppCommandManager_setVoicePromptCtrl"
+      ]
+    },
+    "libserialport_jni.so": {
+      "needed": [
+        "liblog.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "exports": [
+        "JNI_OnLoad"
+      ]
+    }
+  }
+}

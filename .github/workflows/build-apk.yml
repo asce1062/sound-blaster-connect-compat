@@ -1,0 +1,144 @@
+# Trusted APK build: all four variants from the SHA-256-pinned stock APK.
+#
+# The stock APK comes from the private build-input repository through the
+# `build-inputs` environment, whose deployment policy admits only main and
+# v* tags. Pull requests never run this workflow, and a dispatch from any
+# other ref is refused by the environment before a step runs, so the input
+# credential never reaches untrusted code.
+#
+# Variants are built in parallel jobs. APKs are uploaded as workflow artifacts
+# only while the repository is private, or when the release workflow asks for
+# the unsigned compat APK it signs.
+name: Build APKs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      variants:
+        description: JSON list of variants to build
+        type: string
+        default: '["resign", "modernize", "arm64", "compat"]'
+      prerelease:
+        description: Pre-release label (sbc_prerelease), empty for a release
+        type: string
+        default: ""
+      release-inputs:
+        description: Upload the unsigned compat APK, release.env and native libraries
+        type: boolean
+        default: false
+    outputs:
+      unsigned-sha256:
+        description: SHA-256 of the unsigned compat APK
+        value: ${{ jobs.variant.outputs.unsigned-sha256 }}
+
+permissions:
+  contents: read
+
+jobs:
+  variant:
+    name: ${{ matrix.variant }}
+    environment: build-inputs
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJSON(inputs.variants || '["resign", "modernize", "arm64", "compat"]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      unsigned-sha256: ${{ steps.hash.outputs.unsigned }}
+    env:
+      VARIANT: ${{ matrix.variant }}
+      PRERELEASE: ${{ inputs.prerelease || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the pre-release label
+        run: |
+          if [ -n "$PRERELEASE" ] && ! printf '%s' "$PRERELEASE" | grep -qE '^[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$'; then
+            echo "invalid pre-release label" >&2; exit 1
+          fi
+
+      - id: tc
+        uses: ./.github/actions/apk-toolchain
+
+      - name: Stock APK (verified against the pin before any patch)
+        uses: ./.github/actions/stock-input
+        with:
+          repository: ${{ vars.SBC_INPUTS_REPOSITORY }}
+          deploy-key: ${{ secrets.SBC_INPUTS_DEPLOY_KEY }}
+
+      # The jars are immutable: CMakeLists.txt holds their versions and SHA-256
+      # pins, so any pin change is a new key, and configure re-verifies every
+      # restored jar against its pin.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/tools
+          key: jars-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+        run: |
+          "$SDK/cmake/3.22.1/bin/cmake" -S . -B build -G Ninja \
+            -DCMAKE_MAKE_PROGRAM="$SDK/cmake/3.22.1/bin/ninja" \
+            -Dandroid_sdk_root="$SDK" \
+            -Dandroid_ndk="$SDK/ndk/25.1.8937393" \
+            -Dzipalign_bin="$SDK/build-tools/33.0.1/zipalign" \
+            -Dapktool_jobs="$(nproc)" \
+            -Dsbc_prerelease="$PRERELEASE"
+
+      - name: Build
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+        run: |
+          start=$(date +%s)
+          "$SDK/cmake/3.22.1/bin/cmake" --build build --target "apk-$VARIANT"
+          echo "build apk-$VARIANT: $(( $(date +%s) - start )) s" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Native libraries match the accepted build
+        if: matrix.variant == 'arm64' || matrix.variant == 'compat'
+        run: python3 scripts/ci/check_elf.py arm64-v8a build/native/arm64-v8a/lib
+
+      - id: hash
+        name: Hashes
+        run: |
+          {
+            echo "| file | SHA-256 | content digest |"; echo "|---|---|---|"
+            for f in build/sbc_"$VARIANT"*.apk; do
+              d="$(python3 scripts/ci/compare_apks.py --digest --ignore-signatures "$f" | cut -d' ' -f1)"
+              echo "| $(basename "$f") | $(sha256sum "$f" | cut -d' ' -f1) | $d |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$VARIANT" = compat ]; then
+            echo "unsigned=$(sha256sum "build/sbc_$VARIANT.apk" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload APKs (private repository only)
+        if: github.event.repository.private && !inputs.release-inputs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apk-${{ matrix.variant }}
+          path: build/sbc_${{ matrix.variant }}*.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Stage the release inputs
+        if: inputs.release-inputs && matrix.variant == 'compat'
+        run: |
+          mkdir -p release-inputs/native
+          cp build/sbc_compat.apk build/release.env release-inputs/
+          cp build/native/arm64-v8a/lib/*.so release-inputs/native/
+          (cd release-inputs && sha256sum sbc_compat.apk release.env native/*.so > SHA256SUMS)
+      - name: Upload the release inputs
+        if: inputs.release-inputs && matrix.variant == 'compat'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-inputs
+          path: release-inputs/
+          retention-days: 1
+          if-no-files-found: error

@@ -1,0 +1,236 @@
+# Release: build, sign, verify and prepare a DRAFT GitHub release of compat.
+# Nothing is published: the operator reviews the draft and publishes it.
+#
+# Triggers and modes:
+#   push of tag v<version>      release mode, production key. The tag must
+#                               equal v<project version> and carry no label.
+#   dispatch, mode release      production key; requires a pre-release label
+#                               (an update rehearsal, e.g. rehearsal.1). A
+#                               release without a label comes only from a tag.
+#   dispatch, mode test-release disposable rehearsal key.
+#
+# Each job holds only what it needs:
+#   plan     contents: read; decides mode, label and environment
+#   build    contents: read; build-apk.yml (stock input via `build-inputs`)
+#   sign     contents: read; the signing environment's secrets, nothing else
+#   verify   contents: read, actions: read; verify-release.yml, no secrets
+#   draft    contents: write; no secrets; creates the draft release
+# There is no pull_request trigger, and the `release` environment admits only
+# v* tags and main, so no secret reaches untrusted code.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [test-release, release]
+        default: test-release
+      prerelease:
+        description: Pre-release label, e.g. rehearsal.1 (required for mode release)
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      environment: ${{ steps.plan.outputs.environment }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          IN_MODE: ${{ inputs.mode }}
+          IN_LABEL: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^ *VERSION \([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p' CMakeLists.txt | head -1)"
+          test -n "$version" || { echo "no project VERSION in CMakeLists.txt" >&2; exit 1; }
+          if [ "$EVENT" = push ]; then
+            [ "$REF_TYPE" = tag ] || { echo "release runs on tags only" >&2; exit 1; }
+            if [ "$REF_NAME" != "v$version" ]; then
+              echo "tag $REF_NAME does not equal v$version (project VERSION); labelled tags are refused" >&2
+              exit 1
+            fi
+            mode=release label="" tag="$REF_NAME"
+          else
+            mode="$IN_MODE" label="$IN_LABEL" tag=""
+            if [ -n "$label" ] && ! printf '%s' "$label" | grep -qE '^[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$'; then
+              echo "invalid pre-release label" >&2; exit 1
+            fi
+            if [ "$mode" = release ] && [ -z "$label" ]; then
+              echo "a dispatched release needs a pre-release label; an unlabelled release comes from its tag" >&2
+              exit 1
+            fi
+          fi
+          if [ "$mode" = release ]; then env_name=release; else env_name=release-rehearsal; fi
+          {
+            echo "mode=$mode"; echo "prerelease=$label"; echo "environment=$env_name"; echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "mode $mode, label '${label}', environment $env_name, version $version" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-apk.yml
+    with:
+      variants: '["compat"]'
+      prerelease: ${{ needs.plan.outputs.prerelease }}
+      release-inputs: true
+
+  sign:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ needs.plan.outputs.environment }}
+    permissions:
+      contents: read
+    env:
+      MODE: ${{ needs.plan.outputs.mode }}
+      LABEL: ${{ needs.plan.outputs.prerelease }}
+      IN: ${{ runner.temp }}/in
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: tc
+        uses: ./.github/actions/apk-toolchain
+        with:
+          packages: cmake/3.22.1 build-tools/37.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-inputs
+          path: ${{ runner.temp }}/in
+      - name: Check the release inputs
+        run: |
+          set -euo pipefail
+          (cd "$IN" && sha256sum -c SHA256SUMS)
+          got="$(sed -n 's/^PRERELEASE=//p' "$IN/release.env")"
+          [ "$got" = "$LABEL" ] || { echo "release.env label '$got' is not '$LABEL'" >&2; exit 1; }
+          python3 scripts/ci/check_elf.py arm64-v8a "$IN/native"
+
+      # One step per mode, each naming only its own secrets, so a missing
+      # production secret can never fall back to the rehearsal key.
+      - name: Keystore (release)
+        if: needs.plan.outputs.mode == 'release'
+        env:
+          KS_B64: ${{ secrets.SBC_RELEASE_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KS_B64" || { echo "SBC_RELEASE_KEYSTORE_B64 is not set" >&2; exit 1; }
+          install -d -m 700 "$RUNNER_TEMP/ks"
+          (umask 077; printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/ks/release.p12")
+      - name: Keystore (test-release)
+        if: needs.plan.outputs.mode == 'test-release'
+        env:
+          KS_B64: ${{ secrets.SBC_TEST_RELEASE_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KS_B64" || { echo "SBC_TEST_RELEASE_KEYSTORE_B64 is not set" >&2; exit 1; }
+          install -d -m 700 "$RUNNER_TEMP/ks"
+          (umask 077; printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/ks/release.p12")
+
+      - name: Sign and verify (release)
+        if: needs.plan.outputs.mode == 'release'
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+          SBC_RELEASE_KEYSTORE: ${{ runner.temp }}/ks/release.p12
+          SBC_RELEASE_KEYSTORE_PASS: ${{ secrets.SBC_RELEASE_KEYSTORE_PASS }}
+          SBC_RELEASE_KEY_PASS: ${{ secrets.SBC_RELEASE_KEY_PASS }}
+          SBC_RELEASE_KEY_ALIAS: ${{ vars.SBC_RELEASE_KEY_ALIAS }}
+          SBC_RELEASE_CERT_SHA256: ${{ vars.SBC_RELEASE_CERT_SHA256 }}
+        run: bash scripts/ci/sign_release.sh
+      - name: Sign and verify (test-release)
+        if: needs.plan.outputs.mode == 'test-release'
+        env:
+          SDK: ${{ steps.tc.outputs.sdk }}
+          SBC_TEST_RELEASE_KEYSTORE: ${{ runner.temp }}/ks/release.p12
+          SBC_TEST_RELEASE_KEYSTORE_PASS: ${{ secrets.SBC_TEST_RELEASE_KEYSTORE_PASS }}
+          SBC_TEST_RELEASE_KEY_PASS: ${{ secrets.SBC_TEST_RELEASE_KEY_PASS }}
+          SBC_TEST_RELEASE_KEY_ALIAS: ${{ vars.SBC_TEST_RELEASE_KEY_ALIAS }}
+          SBC_TEST_RELEASE_CERT_SHA256: ${{ vars.SBC_TEST_RELEASE_CERT_SHA256 }}
+        run: bash scripts/ci/sign_release.sh
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ks" "$RUNNER_TEMP/sign-work"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-apk
+          path: ${{ runner.temp }}/out/
+          retention-days: 7
+          if-no-files-found: error
+
+  verify:
+    needs: [plan, sign]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/verify-release.yml
+    with:
+      mode: ${{ needs.plan.outputs.mode }}
+      tag: ${{ needs.plan.outputs.tag }}
+
+  draft:
+    needs: [plan, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      MODE: ${{ needs.plan.outputs.mode }}
+      LABEL: ${{ needs.plan.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: signed-apk
+          path: ${{ runner.temp }}/out
+      - name: Notes and inventory
+        run: |
+          set -euo pipefail
+          meta="$(ls "$RUNNER_TEMP"/out/*.apk.json)"
+          tag="$(sed -n 's/^ *"release_tag" *: *"\([^"]*\)".*/\1/p' "$meta")"
+          test -n "$tag" || { echo "no release_tag in $meta" >&2; exit 1; }
+          python3 scripts/release/release_notes.py notes --tag "$tag" --metadata "$meta" -o "$RUNNER_TEMP/notes.md"
+          # A rehearsal draft must not take the name the release will use.
+          if [ "$MODE" = test-release ]; then tag="$tag-test-release.$GITHUB_RUN_NUMBER"; fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          python3 scripts/release/inventory.py --metadata "$meta" \
+            -o "$RUNNER_TEMP/out/INVENTORY.md" --json "$RUNNER_TEMP/out/inventory.json"
+      - name: Create the draft release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "a release named $TAG already exists; nothing is changed" >&2
+            exit 1
+          fi
+          flags=(--draft --title "SB Connect Compat $TAG" --notes-file "$RUNNER_TEMP/notes.md")
+          if [ "$MODE" = test-release ] || [ -n "$LABEL" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" "${flags[@]}" --target "$GITHUB_SHA" "$RUNNER_TEMP"/out/*
+          echo "draft release $TAG prepared; publication is the operator's decision" >> "$GITHUB_STEP_SUMMARY"

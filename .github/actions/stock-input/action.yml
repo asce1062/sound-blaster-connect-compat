@@ -1,0 +1,52 @@
+name: Stock APK input
+description: >
+  Fetch the stock APK from the private build-input repository and place it at
+  inputs/SBConnect_v1.04.02.apk after checking its SHA-256 against the pin in
+  CMakeLists.txt. The input repository's checkout and its key are removed
+  before this step ends; the APK never enters this repository.
+inputs:
+  repository:
+    description: owner/name of the private build-input repository
+    required: true
+  deploy-key:
+    description: Read-only SSH deploy key of that repository
+    required: true
+  path:
+    description: Path of the APK inside the input repository
+    required: false
+    default: SBConnect_v1.04.02.apk
+runs:
+  using: composite
+  steps:
+    - name: Check out the build-input repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ inputs.repository }}
+        ssh-key: ${{ inputs.deploy-key }}
+        path: .build-inputs
+        persist-credentials: false
+        fetch-depth: 1
+
+    - name: Verify and stage the stock APK
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+      run: |
+        set -euo pipefail
+        pin="$(sed -n '/^set(apk_input_sha256/,/)/p' CMakeLists.txt | grep -oE '[0-9a-f]{64}' | head -1)"
+        test ${#pin} -eq 64 || { echo "no apk_input_sha256 pin in CMakeLists.txt" >&2; exit 1; }
+        src=".build-inputs/${INPUT_PATH}"
+        test -f "$src" || { echo "input not found in the build-input repository: ${INPUT_PATH}" >&2; exit 1; }
+        got="$(sha256sum "$src" | cut -d' ' -f1)"
+        if [ "$got" != "$pin" ]; then
+          echo "stock APK SHA-256 $got does not match the pin $pin" >&2
+          exit 1
+        fi
+        mkdir -p inputs
+        cp "$src" inputs/SBConnect_v1.04.02.apk
+        echo "stock APK verified: $got"
+
+    - name: Remove the build-input checkout
+      if: always()
+      shell: bash
+      run: rm -rf .build-inputs
