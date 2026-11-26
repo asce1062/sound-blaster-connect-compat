@@ -68,6 +68,39 @@ Screenshots: `pp-1-scan-recommended.png`, `pp-2-after-scan.png`,
 `pp-3-installed.png` in the operator's evidence folder
 `production-candidate-v0.1.0-596f3bb-2026-11-26`.
 
+## Hardware (Pixel 8, Sound BlasterX Katana)
+
+The same install, continuing from the user install route. The Pixel 8 is
+bonded to the Katana only. The operator drove the app; `logcat -v
+threadtime` ran throughout. The run wrote master volume only.
+
+| Step | Observation |
+|---|---|
+| First launch | Two system requests: Nearby devices, then notifications; the operator allowed both. `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT` and `POST_NOTIFICATIONS` granted `USER_SET`. No location or microphone request; both stay not granted. `libsbxapplogic_ctprotocol_jni.so` loads from `lib/arm64` (`nativeloader` "ok"). Dashboard offline, "Touch to connect to an Audio Device" |
+| Discovery and connection | Connect to Device lists the bonded Katana; the operator connected it. A2DP connect, then the SPP socket on port 2, `maxpayloadSize 62`, `GET_FEATURE_CONTROL_SUPPORT`. `MainService` runs in the foreground, type `connectedDevice`, with its ongoing notification. "Sound BlasterX Katana, Connected" |
+| Live state and presets | Dashboard reads presets Neutral, Gaming, Concert and sources Bluetooth, Aux In (unavailable) and Optical (active). The operator switched presets and back; presets and saved profiles stayed in sync with the speaker. 22 commands sent, 46 frames received |
+| Reversible write | Master volume one step down and back, from the app's buttons and from the speaker's buttons and remote. The app's slider and the speaker followed each other in both directions and each adjustment continued from the last value; no lost or conflicting step. Never above the starting level |
+| `pm revoke` of `BLUETOOTH_SCAN` while connected, app in front | "Killing ... permissions revoked". The new process reconnects 5 s later with `BLUETOOTH_CONNECT` alone, `maxpayloadSize 62`, foreground `connectedDevice`. No dialog, no `SecurityException` |
+| `pm revoke` of `POST_NOTIFICATIONS` while connected | Killed; the new process reconnects and `MainService` runs in the foreground. Notifications then re-granted with `pm grant` |
+| `pm revoke` of `BLUETOOTH_CONNECT` with the app in the background (both Nearby permissions denied) | Killed; `MainService` restarts for its sticky start, makes no Bluetooth call and is not in the foreground. No `SecurityException` |
+| Relaunch and recovery | No system dialog on launch; Connect to Device shows the Katana disconnected and the app's Nearby devices explanation with **Not now** and **Allow**. **Allow**, then the system **Allow** (one system request): both granted `USER_SET`, the Katana reconnects without a further tap, `maxpayloadSize 62`, foreground `connectedDevice` |
+
+No `FATAL EXCEPTION`, ANR, `UnsatisfiedLinkError` or `SecurityException`
+from the app in the whole run. The app logs, and catches, the
+`ArrayIndexOutOfBoundsException` in `CtProtocolMgr.d()` already recorded in
+[ARM64_VERDICT.md](../arm64/ARM64_VERDICT.md), `NullPointerException`s
+from the firmware-update JSON parse after `checkFWVersion`, one
+`[waitForReply] - Timed Out!!` during the connection setup with traffic
+continuing after it, and the support library's denied `mListener`
+reflection.
+
+**Verdict: hardware gate PASS** for this APK on this device and speaker.
+
+Screenshots `hw-1-after-prompts.png`, `hw-2-connected.png`,
+`hw-3-presets.png`, `hw-5-notification.png` (the explanation dialog) and
+`hw-6-recovered.png`, and the full log `hw-logcat.txt`, are in the same
+evidence folder.
+
 ## Remaining gates
 
-Hardware (Katana) and update qualification have not run on this candidate.
+Update qualification has not run on this candidate.
