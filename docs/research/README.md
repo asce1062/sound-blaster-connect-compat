@@ -74,6 +74,7 @@ Classification: **Research** explains how behavior was recovered or decided;
 | [BUILD_TIMES.md](android/BUILD_TIMES.md) | Validation | Stage times of the APK build, and a clean rebuild of `compat` that is content-identical to the accepted build. |
 | [RELEASE_PIPELINE_REHEARSAL.md](android/RELEASE_PIPELINE_REHEARSAL.md) | Validation | The signing driver through the build target and the release workflow's sign step with a disposable key: fail-closed controls, identical outputs from both routes, `verify_release.py`. |
 | [PRODUCTION_CANDIDATE.md](android/PRODUCTION_CANDIDATE.md) | Validation | The first production-signed `compat` (`63dcd889...`) against the release gates: signing, and the Pixel 8 user install route with Play Protect (PRODUCTION_PLAY_PROTECT_PASS). |
+| [CI_QUALIFICATION.md](android/CI_QUALIFICATION.md) | Validation | The first GitHub-hosted runs: source CI, the APK build and its equivalence to the local build, a test-release rehearsal, the production signing boundary, and CI verification of the locally signed candidate. |
 
 ## Vocabulary
 

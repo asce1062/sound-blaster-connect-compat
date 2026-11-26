@@ -183,6 +183,14 @@ incremental; caching cannot shorten it without caching built output. The
 workflow runs variants in parallel jobs instead, so the wall time of a
 build is about that of its slowest variant.
 
+On the GitHub-hosted `ubuntu-24.04` runner, from the first runs
+([record](../research/android/CI_QUALIFICATION.md#runner-build-times)):
+
+| Job | Time |
+|---|---|
+| `build-apk.yml`, `resign` / `compat` / `arm64` / `modernize` (job, including toolchain and stock input) | 1 min 48 s / 4 min 09 s / 4 min 25 s / 4 min 40 s |
+| `release.yml` in mode `test-release`, plan to draft | 5 min 29 s |
+
 ## Equivalent builds
 
 APK files are not byte-reproducible: apktool writes the build time into
@@ -205,6 +213,13 @@ match and only timestamps differ. The arm64 libraries are byte-identical.
 Signature files are left out with `--ignore-signatures`, so a signed APK has
 the digest of the build it was signed from when signing changed no other
 entry.
+
+apktool writes the entries in a different order on Windows and on Linux.
+`--any-order` compares names, methods and bytes without the order and sorts
+the digest's lines by name; the build summaries use it. The `compat`
+unsigned build of the GitHub runner, the local Windows build and the
+production candidate `63dcd889...` have one such digest
+([record](../research/android/CI_QUALIFICATION.md#apk-equivalence)).
 
 ## Running the checks locally
 
