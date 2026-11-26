@@ -18,14 +18,13 @@ decisions.
 |---|---|
 | test-release and release targets | implemented; one signing driver for local and CI signing |
 | test-release rehearsal (sign, verify, update, foreign-signer refusal) | done on the API 30 emulator; [record](../research/android/RELEASE_SIGNING.md) |
-| production key | created 2026-11-26 on the operator's machine, outside every repository |
+| production key | created 2026-11-26 on the operator's machine, outside every repository; two offline copies, each byte-identical to the original (SHA-256) |
 | published certificate fingerprint | `3c726afa...` in [`signing/release-certificate.sha256`](../../signing/release-certificate.sha256) ([SIGNING.md](SIGNING.md#the-production-key)) |
 | production-signed build | `sbconnect-compat-v0.1.0.apk`, package `com.creative.apps.sbconnect.compat`, SHA-256 `63dcd8892ef612191dfd253f5bfd5c45fc0d8a85c42c261b40f152bf922a1543`, from `596f3bb`; all four release gates passed ([record](../research/android/PRODUCTION_CANDIDATE.md)). It supersedes `81b32401...` from `25b7f61`, built under the first application ID and never installed |
 | source CI, APK build, release and verification workflows | written ([CI.md](CI.md)); not yet run on GitHub, the repository has no remote |
 | user install route (file manager, system installer, Play Protect on) | passed for the production candidate `63dcd889...` on a Pixel 8 (API 37): "App scan recommended", scan, "This app looks safe", installed through the system installer ([record](../research/android/PRODUCTION_CANDIDATE.md)). The result covers that APK and certificate only |
 
-A release cannot be produced until the production key is backed up to two
-verified offline copies. A release is not published until the
+A release is not published until the
 release gates below pass with the release-signed APK itself.
 
 ## Release gates
