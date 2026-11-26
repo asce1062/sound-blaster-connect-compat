@@ -1,6 +1,6 @@
 # Android SDK packages of the APK pipeline: <path under the SDK root> <Pkg.Revision>.
-# Read by android_sdk_install.sh (install and verify), check_pins.py (verify)
-# and the workflows (cache key). Revisions are compared exactly.
+# Read by android_sdk_install.sh (install and verify) and check_pins.py
+# (verify). Revisions are compared exactly.
 cmake/3.22.1 3.22.1
 ndk/25.1.8937393 25.1.8937393
 build-tools/33.0.1 33.0.1

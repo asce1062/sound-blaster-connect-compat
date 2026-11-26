@@ -120,6 +120,10 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/build-apk.yml
+    # A called workflow sees its job environment's secrets (the input deploy
+    # key in `build-inputs`) only when the caller passes secrets on. No
+    # secret is stored at repository level, so this passes nothing else.
+    secrets: inherit
     with:
       variants: '["compat"]'
       prerelease: ${{ needs.plan.outputs.prerelease }}

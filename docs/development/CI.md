@@ -34,7 +34,8 @@ reason ([NATIVE_LIBRARIES.md](../technical/NATIVE_LIBRARIES.md)).
 `build-apk.yml` builds `resign`, `modernize`, `arm64` and `compat` in four
 parallel jobs. Each job:
 
-1. installs the pinned JDK and SDK packages ([toolchain cache](#caching));
+1. installs the pinned JDK and the SDK packages the runner image lacks, and
+   checks every package's revision ([caching](#caching));
 2. fetches the stock APK from the private input repository with a read-only
    deploy key and checks its SHA-256 against `apk_input_sha256` in
    `CMakeLists.txt` before anything reads it; the input checkout is deleted
@@ -146,9 +147,16 @@ Only verified, immutable inputs are cached; nothing signed or built is.
 
 | Cache | Key | Verified after restore |
 |---|---|---|
-| Android SDK packages | runner OS and architecture, the SHA-256 of [`sdk-packages.txt`](../../scripts/ci/sdk-packages.txt), the requested package list | [`android_sdk_install.sh`](../../scripts/ci/android_sdk_install.sh) checks each package's `Pkg.Revision` and reinstalls a mismatch |
 | apktool and uber-apk-signer jars | the SHA-256 of `CMakeLists.txt`, which holds their versions and SHA-256 pins | configure checks each jar's SHA-256 and stops on a mismatch |
 | JDK | `setup-java`'s own tool cache, by exact version | |
+
+Android SDK packages are not cached. The runner image preinstalls most of
+them under a root-owned SDK directory where a cache restore fails, and
+installing the missing ones takes less time than restoring them.
+[`android_sdk_install.sh`](../../scripts/ci/android_sdk_install.sh)
+installs any package without the pinned `Pkg.Revision` from
+[`sdk-packages.txt`](../../scripts/ci/sdk-packages.txt) and fails on a
+revision that still differs.
 
 The decoded stock tree, the variant trees, the native build and every APK
 are rebuilt in each run. Signing material is never cached: the keystore
@@ -217,6 +225,6 @@ The host suites: [TESTING.md](TESTING.md).
    `scripts/ci/sdk-packages.txt` (SDK packages), the `uses:` line (actions,
    commit SHA with the version as a comment), or the `java-version` of the
    toolchain action.
-2. Every cache key that depends on it changes with it.
+2. The jar cache key changes with `CMakeLists.txt`.
 3. If the native libraries change, verify them and record the reason before
    changing the accepted hashes.

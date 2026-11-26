@@ -1,9 +1,11 @@
 name: APK toolchain
 description: >
-  Pinned JDK and Android SDK packages for the APK pipeline. SDK packages are
-  restored from a cache keyed on scripts/ci/sdk-packages.txt and their
-  revisions are verified after restore or install, so a stale or altered
-  cache entry fails the job instead of reaching the build.
+  Pinned JDK and Android SDK packages for the APK pipeline. Packages the
+  runner image lacks are installed, and every package's revision is verified
+  against scripts/ci/sdk-packages.txt, so a different revision fails the job
+  instead of reaching the build. SDK packages are not cached: the runner
+  image preinstalls most of them in directories a cache restore cannot
+  write, and installing the rest is faster than restoring them.
 inputs:
   packages:
     description: Space-separated subset of sdk-packages.txt paths (default all)
@@ -29,18 +31,6 @@ runs:
         root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
         test -n "$root" || { echo "no Android SDK on this runner" >&2; exit 1; }
         echo "root=$root" >> "$GITHUB_OUTPUT"
-        list="${{ inputs.packages }}"
-        [ -n "$list" ] || list="$(grep -vE '^\s*(#|$)' scripts/ci/sdk-packages.txt | awk '{print $1}' | tr '\n' ' ')"
-        paths=""
-        for p in $list; do paths="${paths}${root}/${p}"$'\n'; done
-        { echo "paths<<EOF"; printf '%s' "$paths"; echo "EOF"; } >> "$GITHUB_OUTPUT"
-        echo "key=$(echo "$list" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
-
-    - name: Restore SDK packages
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ steps.sdk.outputs.paths }}
-        key: sdk-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci/sdk-packages.txt') }}-${{ steps.sdk.outputs.key }}
 
     - name: Install and verify SDK packages
       shell: bash
