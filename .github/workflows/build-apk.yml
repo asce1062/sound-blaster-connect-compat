@@ -114,9 +114,9 @@ jobs:
         name: Hashes
         run: |
           {
-            echo "| file | SHA-256 | content digest |"; echo "|---|---|---|"
+            echo "| file | SHA-256 | content digest (any order) |"; echo "|---|---|---|"
             for f in build/sbc_"$VARIANT"*.apk; do
-              d="$(python3 scripts/ci/compare_apks.py --digest --ignore-signatures "$f" | cut -d' ' -f1)"
+              d="$(python3 scripts/ci/compare_apks.py --digest --ignore-signatures --any-order "$f" | cut -d' ' -f1)"
               echo "| $(basename "$f") | $(sha256sum "$f" | cut -d' ' -f1) | $d |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
