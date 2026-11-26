@@ -253,9 +253,25 @@ commit and refuses to run when its own workflow files differ from
 The compat repository keeps source CI only; `check_workflows.py` holds that
 boundary.
 
-Before the compat repository is made public, its earlier artifacts,
-caches, APK pipeline runs, environments, secrets, variables and the deploy
-key into the build-input repository are removed.
+A public repository also serves the commits of fork pull requests by SHA,
+so the trusted-definition action builds only a commit on a branch of the
+source repository (`769a83e`). In the build-input repository, with its
+`source` branch at `769a83e`:
+
+| Requested commit | Run | Result |
+|---|---|---|
+| `769a83e`, on `source` | `45866937083`, Build APKs | success; the guard step passed in all four jobs |
+| `8f2630f`, child of `769a83e`, its branch deleted after the push | `45866944407`, Build APKs | failure in all four jobs at the guard: "is not on any branch"; the checkout of the SHA itself succeeded |
+
+The guard's log shows the token only as the script text, not its value.
+
+On 2026-11-26, before any visibility change, the compat repository's 14
+artifacts, 3 caches, 9 APK build and release runs (source CI runs kept),
+its environments `build-inputs`, `release` and `release-rehearsal` with
+their secrets, its two variables and the build-input repository's deploy
+key were deleted, and its three former APK workflows disabled. Copies of
+the deleted drafts' assets and of the run logs are kept with the private
+evidence.
 
 ## Result
 
@@ -269,5 +285,8 @@ key into the build-input repository are removed.
 | RELEASE_CANDIDATE_PASS | `63dcd889...` from `596f3bb`, certificate `3c726afa...`, unchanged, verified by CI against the runner's own build |
 
 Limitation at the time: pushes started no workflow runs; delivery has
-since resumed ([Event delivery](#event-delivery)). The two drafts stay unpublished in the private repository. Publishing one,
-and the repository's visibility, remain the operator's decisions.
+since resumed ([Event delivery](#event-delivery)). The two qualification
+drafts were later deleted; the `v0.1.0` draft of the compat repository
+holds the candidate's files ([RELEASE.md](../../development/RELEASE.md#each-release)).
+Publishing it, and the repository's visibility, remain the operator's
+decisions.
