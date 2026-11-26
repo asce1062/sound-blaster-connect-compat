@@ -21,7 +21,8 @@
 #   <prefix>KEY_PASS       key password; optional, default the keystore password
 #   <prefix>CERT_SHA256    expected SHA-256 of the signer certificate
 #
-# Pipeline, one process per step:
+# Pipeline, run by sign_release.cmake (which the release workflow also calls),
+# one process per step:
 #   sign_apk.cmake          remove earlier outputs, zipalign the unsigned APK,
 #                           sign it with apksigner (<out>.unverified)
 #   verify_signed_apk.cmake apksigner verify, zipalign check, certificate
@@ -62,9 +63,7 @@ else()
 endif()
 set(sbc_bt_properties "${_bt}/source.properties")
 
-set(sbc_sign_script "${CMAKE_CURRENT_LIST_DIR}/sign_apk.cmake")
-set(sbc_verify_signed_script "${CMAKE_CURRENT_LIST_DIR}/verify_signed_apk.cmake")
-set(sbc_metadata_script "${CMAKE_CURRENT_LIST_DIR}/release_metadata.cmake")
+set(sbc_sign_release_script "${CMAKE_CURRENT_LIST_DIR}/sign_release.cmake")
 
 # sbc_add_signed_apk(<variant> MODE <test-release|release> ABIS <abi>...
 #                    NATIVE_ABI <abi> NATIVE_LIB_DIR <dir> NATIVE_LIBS <files>...)
@@ -89,33 +88,43 @@ function(sbc_add_signed_apk name)
     set(out "${out_dir}/${out_name}")
     set(work "${CMAKE_BINARY_DIR}/${name}/${S_MODE}")
     string(REPLACE ";" "," abis_csv "${S_ABIS}")
-    string(REPLACE ";" "," libs_csv "${S_NATIVE_LIBS}")
+    set(lib_names "")
+    foreach(lib IN LISTS S_NATIVE_LIBS)
+        cmake_path(GET lib FILENAME lib_name)
+        list(APPEND lib_names "${lib_name}")
+    endforeach()
+    string(REPLACE ";" "," lib_names_csv "${lib_names}")
 
-    set(tool_args
-        "-DAPKSIGNER=${sbc_apksigner}" "-DZIPALIGN=${sbc_bt_zipalign}"
-        "-DAAPT2=${sbc_aapt2}" "-DBUILD_TOOLS_PROPERTIES=${sbc_bt_properties}"
-        "-DBUILD_TOOLS_VERSION=${android_build_tools_version}")
+    # The release workflow signs without a build tree; release.env carries the
+    # values it needs (sign_release.cmake reads them with -DRELEASE_ENV). Both
+    # modes share them, so they are written once.
+    get_property(env_written GLOBAL PROPERTY sbc_release_env_signing)
+    if(NOT env_written)
+        file(
+            APPEND "${CMAKE_BINARY_DIR}/release.env"
+            "RELEASE_ABIS=${abis_csv}\n"
+            "NATIVE_ABI=${S_NATIVE_ABI}\n"
+            "NATIVE_LIBS=${lib_names_csv}\n"
+            "STOCK_INPUT_SHA256=${apk_input_actual}\n")
+        set_property(GLOBAL PROPERTY sbc_release_env_signing TRUE)
+    endif()
 
     add_custom_target(
         apk-${name}-${S_MODE}
         COMMAND
-            "${CMAKE_COMMAND}" "-DMODE=${S_MODE}" "-DPREFIX=${prefix}"
-            "-DUNSIGNED=${unsigned}" "-DOUT=${out}" "-DWORK=${work}"
-            ${tool_args} -P "${sbc_sign_script}"
-        COMMAND
-            "${CMAKE_COMMAND}" "-DMODE=${S_MODE}" "-DAPK=${out}.unverified"
-            "-DCERT_ENV=${prefix}CERT_SHA256" "-DUNSIGNED=${unsigned}"
-            "-DWORK=${work}" "-DPACKAGE=${sbc_variant_${name}_package}"
-            "-DVERSION_CODE=${sbc_version_code}"
-            "-DVERSION_NAME=${sbc_version_name}" "-DABIS=${abis_csv}"
-            "-DNATIVE_ABI=${S_NATIVE_ABI}" "-DNATIVE_LIBS=${libs_csv}"
-            "-DREF_SCRIPT=${resign_verify_script}" -DDISCARD_ON_FAILURE=ON ${tool_args} -P
-            "${sbc_verify_signed_script}"
-        COMMAND
-            "${CMAKE_COMMAND}" "-DMODE=${S_MODE}" "-DOUT=${out}"
-            "-DWORK=${work}" "-DUNSIGNED=${unsigned}"
-            "-DINPUT_SHA256=${apk_input_actual}" "-DTAG=${sbc_release_tag}"
-            "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}" -P "${sbc_metadata_script}"
+            "${CMAKE_COMMAND}" "-DMODE=${S_MODE}" "-DUNSIGNED=${unsigned}"
+            "-DOUT_DIR=${out_dir}" "-DWORK=${work}"
+            "-DNATIVE_LIB_DIR=${S_NATIVE_LIB_DIR}" "-DNATIVE_LIBS=${lib_names_csv}"
+            "-DNATIVE_ABI=${S_NATIVE_ABI}" "-DABIS=${abis_csv}"
+            "-DPACKAGE=${sbc_variant_${name}_package}"
+            "-DVERSION_CODE=${sbc_version_code}" "-DVERSION_NAME=${sbc_version_name}"
+            "-DTAG=${sbc_release_tag}" "-DRELEASE_APK=${sbc_release_apk}"
+            "-DINPUT_SHA256=${apk_input_actual}" "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+            "-DREF_SCRIPT=${resign_verify_script}"
+            "-DAPKSIGNER=${sbc_apksigner}" "-DZIPALIGN=${sbc_bt_zipalign}"
+            "-DAAPT2=${sbc_aapt2}" "-DBUILD_TOOLS_PROPERTIES=${sbc_bt_properties}"
+            "-DBUILD_TOOLS_VERSION=${android_build_tools_version}"
+            -P "${sbc_sign_release_script}"
         DEPENDS "${unsigned}"
         COMMENT "variant[${name}]: ${S_MODE} sign + verify => ${out}"
         USES_TERMINAL VERBATIM)

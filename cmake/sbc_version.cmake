@@ -41,7 +41,23 @@ foreach(part MAJOR MINOR PATCH)
     endif()
 endforeach()
 
+# A pre-release label marks a build that is not a release, for example an
+# update rehearsal signed with the production key. It is appended to the
+# versionName, the tag and the file name; the versionCode stays that of the
+# version, so the label consumes no versionCode and the release of that
+# version still installs over it. The release workflow refuses a labelled
+# build for a release tag.
+set(sbc_prerelease
+    ""
+    CACHE STRING "Pre-release label, e.g. rehearsal.1 (empty for a release)")
+if(NOT sbc_prerelease STREQUAL "" AND NOT sbc_prerelease MATCHES "^[0-9A-Za-z]+(\\.[0-9A-Za-z]+)*$")
+    message(FATAL_ERROR "sbc_version: sbc_prerelease '${sbc_prerelease}' must be dot-separated alphanumerics")
+endif()
+
 set(sbc_version "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
+if(NOT sbc_prerelease STREQUAL "")
+    string(APPEND sbc_version "-${sbc_prerelease}")
+endif()
 set(sbc_version_name "${sbc_upstream_version}-compat.${sbc_version}")
 math(
     EXPR
@@ -59,6 +75,7 @@ file(
     "APP_LABEL=${sbc_app_label}\n"
     "VERSION_NAME=${sbc_version_name}\n"
     "VERSION_CODE=${sbc_version_code}\n"
+    "PRERELEASE=${sbc_prerelease}\n"
     "UPSTREAM_VERSION=${sbc_upstream_version}\n")
 
 message(
