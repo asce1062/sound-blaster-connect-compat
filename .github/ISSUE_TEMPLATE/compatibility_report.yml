@@ -1,0 +1,53 @@
+name: Compatibility report
+description: Report a phone or speaker that works, or does not, with SB Connect Compat.
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports extend the device matrix in docs/user/INSTALLATION.md. One
+        phone and speaker per report. Do not attach APK files.
+  - type: input
+    id: version
+    attributes:
+      label: Build
+      placeholder: v0.1.0, compat
+    validations:
+      required: true
+  - type: input
+    id: apk_sha256
+    attributes:
+      label: APK SHA-256
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone, Android version, 64-bit only or not
+      description: "`adb shell getprop ro.product.cpu.abilist32` prints nothing on a 64-bit-only phone."
+      placeholder: Pixel 8, Android 17, 64-bit only
+    validations:
+      required: true
+  - type: input
+    id: speaker
+    attributes:
+      label: Speaker and firmware
+      placeholder: Sound BlasterX Katana, firmware x.y
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install route
+      options:
+        - File manager (sideload)
+        - adb install
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What works and what does not
+      description: Install, Play Protect prompt and scan result, permission prompts, connection, presets, volume, other features you used.
+    validations:
+      required: true

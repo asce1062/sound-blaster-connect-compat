@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in SB Connect Compat fails or behaves differently from the stock app.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is not affiliated with Creative Technology Ltd. Do not
+        attach APK files; give the SHA-256 instead. Security problems go to a
+        private advisory (see SECURITY.md), not an issue.
+  - type: input
+    id: version
+    attributes:
+      label: Build
+      description: Release tag (for example v0.1.0) or the commit of a build of your own, and the variant.
+      placeholder: v0.1.0, compat
+    validations:
+      required: true
+  - type: input
+    id: apk_sha256
+    attributes:
+      label: APK SHA-256
+      description: "`sha256sum <apk>` or `Get-FileHash <apk>`."
+    validations:
+      required: true
+  - type: input
+    id: cert_sha256
+    attributes:
+      label: Signer certificate SHA-256
+      description: "From `apksigner verify --print-certs <apk>`. A release prints the fingerprint in signing/release-certificate.sha256."
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Pixel 8, Android 17
+    validations:
+      required: true
+  - type: input
+    id: speaker
+    attributes:
+      label: Speaker and firmware
+      placeholder: Sound BlasterX Katana, firmware x.y
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps, expected and actual result
+      description: What you did, what you expected, what happened. Say whether the stock app behaves the same on a phone that can run it.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log excerpt
+      description: Optional `adb logcat` excerpt around the failure. Remove device serials, Bluetooth addresses and account names.
+      render: text
