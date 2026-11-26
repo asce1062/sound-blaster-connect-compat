@@ -73,6 +73,7 @@ Classification: **Research** explains how behavior was recovered or decided;
 | [PAGE_SIZE_16K.md](android/PAGE_SIZE_16K.md) | Validation | The arm64 libraries and the protocol drivers on a 16 KiB-page API 36 emulator: translated load, all suites pass; native arm64 at 16 KiB not established. |
 | [BUILD_TIMES.md](android/BUILD_TIMES.md) | Validation | Stage times of the APK build, and a clean rebuild of `compat` that is content-identical to the accepted build. |
 | [RELEASE_PIPELINE_REHEARSAL.md](android/RELEASE_PIPELINE_REHEARSAL.md) | Validation | The signing driver through the build target and the release workflow's sign step with a disposable key: fail-closed controls, identical outputs from both routes, `verify_release.py`. |
+| [PRODUCTION_CANDIDATE.md](android/PRODUCTION_CANDIDATE.md) | Validation | The first production-signed `compat` (`63dcd889...`) against the release gates: signing, and the Pixel 8 user install route with Play Protect (PRODUCTION_PLAY_PROTECT_PASS). |
 
 ## Vocabulary
 
