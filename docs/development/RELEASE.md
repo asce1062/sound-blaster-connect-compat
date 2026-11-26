@@ -18,13 +18,14 @@ decisions.
 |---|---|
 | test-release and release targets | implemented; one signing driver for local and CI signing |
 | test-release rehearsal (sign, verify, update, foreign-signer refusal) | done on the API 30 emulator; [record](../research/android/RELEASE_SIGNING.md) |
-| production key | not created |
-| published certificate fingerprint | none; `signing/release-certificate.sha256` does not exist |
+| production key | created 2026-11-26 on the operator's machine, outside every repository |
+| published certificate fingerprint | `3c726afa...` in [`signing/release-certificate.sha256`](../../signing/release-certificate.sha256) ([SIGNING.md](SIGNING.md#the-production-key)) |
+| production-signed build | none yet |
 | source CI, APK build, release and verification workflows | written ([CI.md](CI.md)); not yet run on GitHub, the repository has no remote |
 | user install route (file manager, system installer, Play Protect on) | not qualified for a release-signed APK. The debug-signed b4 build passed a Play Protect scan on a Pixel 8 ([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)); that result does not carry over to another build or certificate |
 
-A release cannot be produced until the production key exists, is backed up
-and its fingerprint is committed. A release is not published until the
+A release cannot be produced until the production key is backed up to two
+verified offline copies. A release is not published until the
 release gates below pass with the release-signed APK itself.
 
 ## Release gates

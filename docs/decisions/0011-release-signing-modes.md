@@ -1,6 +1,6 @@
 # 0011. Sign releases in a separate, fail-closed pipeline with externally supplied keys
 
-Status: Accepted; the production key does not exist yet
+Status: Accepted; the production key exists (certificate SHA-256 in `signing/release-certificate.sha256`)
 
 ## Context
 

@@ -187,8 +187,16 @@ and the reverse; uninstalling is the only way between them.
 ## The production key
 
 Its creation, backup and the publication of its certificate fingerprint are
-operator steps in [RELEASE.md](RELEASE.md#once-create-the-release-key). The
-published fingerprint is committed as `signing/release-certificate.sha256`;
+operator steps in [RELEASE.md](RELEASE.md#once-create-the-release-key).
+
+| Item | Value |
+|---|---|
+| Subject | `CN=SB Connect Compat` |
+| Key | RSA 4096, PKCS#12, alias `sbconnect-compat`, 10000-day validity, created 2026-11-26 |
+| Certificate SHA-256 | `3c726afab7e94ca20c5d44f854eb357e684323a0bc4ae5d747d3281439e82b57` |
+
+The fingerprint is committed as
+[`signing/release-certificate.sha256`](../../signing/release-certificate.sha256);
 the release workflow's verification accepts no other certificate in release
 mode, and fails while the file does not exist. A debug or disposable key
 never substitutes for the production key: `apk-compat-release` reads only

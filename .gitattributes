@@ -11,4 +11,5 @@
 *.json     text eol=lf
 *.yml      text eol=lf
 *.sh       text eol=lf
+*.sha256   text eol=lf
 CMakeLists.txt text eol=lf
