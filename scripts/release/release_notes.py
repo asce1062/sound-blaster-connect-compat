@@ -66,7 +66,8 @@ def render_section(rev_range):
         item = f"- {scope}{m['text']} ({sha[:7]})"
         if m["breaking"]:
             breaking.append(item)
-        (groups[m["type"]] if m["type"] in groups else other).append(item)
+        else:
+            (groups[m["type"]] if m["type"] in groups else other).append(item)
     lines = []
     if breaking:
         lines += ["### Breaking changes", "", *breaking, ""]
@@ -115,9 +116,11 @@ def notes(tag, metadata, verified_at=None):
     lines = [f"# SB Connect Compat {tag}", ""]
     if m:
         lines += [
-            "Compatibility build of Sound Blaster Connect "
+            "Unofficial compatibility build of Sound Blaster Connect "
             f"{m['version_name'].split('-compat.')[0]} for current Android, installed next to the stock app as "
             f"`{m['package']}`.",
+            "",
+            "Not affiliated with, endorsed by, or supported by Creative Technology Ltd; see NOTICE.md.",
             "",
             "| | |",
             "|---|---|",
