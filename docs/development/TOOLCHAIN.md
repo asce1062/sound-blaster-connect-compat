@@ -20,7 +20,7 @@ mismatch:
 | Java | JDK 17+ (`javac`) | apktool 3.x, uber-apk-signer, oracle harness; `javac` compiles the patch Java sources (`patches/modernize/java/`) to Java 8 bytecode |
 | CMake | 3.22+ | the pipeline (the Android SDK's `cmake/3.22.1` works) |
 | Ninja | any | generator (bundled with the SDK's CMake) |
-| Android NDK | `25.1.8937393` (r25b), exact | arm64-v8a native libraries; the revision is pinned so the build reproduces the validated binaries |
+| Android NDK | `25.1.8937393` (r25b), exact | arm64-v8a native libraries; with this revision the build reproduces the accepted library hashes |
 | Android build-tools | 33.0.1 | `zipalign` (resign), `d8` (oracle harness) |
 | Android build-tools | `37.0.0`, exact | `d8` for the patch Java sources (every variant that applies `modernize`); `apksigner`, `zipalign`, `aapt2` for test-release and release signing ([SIGNING.md](SIGNING.md)) |
 | Android SDK platform | `android-34`, exact | `android.jar` on the `javac` class path for the patch Java sources ([cmake/sbc_java.cmake](../../cmake/sbc_java.cmake)) |

@@ -15,7 +15,11 @@
 - **Patches anchor on 1.04.02.** Every edit in a `patch.cmake` asserts how
   many times its anchor occurs. Keep that assertion when adding an edit.
 - **No stock binaries.** Never commit the stock APK, its libraries, extracted
-  resources, or built APKs. `.gitignore` covers the usual paths.
+  resources, or built APKs, and do not attach APKs to issues or pull
+  requests; give the SHA-256 instead. `.gitignore` covers the usual paths.
+- **License of contributions.** A contribution is licensed under the MIT
+  license in [LICENSE](LICENSE), like the rest of this project's original
+  work. Contribute only what you have the right to license so.
 - **The native toolchain is pinned.** Change the NDK revision only together
   with a recorded comparison of the resulting libraries.
 

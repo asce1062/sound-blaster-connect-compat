@@ -10,8 +10,9 @@ patch. The other variants do not apply it and keep the stock identity.
   `com.creative.apps.sbconnect.compat`.
 - The authority of the `google_measurement_service` provider, which must be
   unique per device.
-- The labels of the application, `MainActivity` and the notification-listener
-  service: `SB Connect Compat`.
+- The labels of the application, `MainActivity` and
+  `LocalMusicRemoteControllerService` (a notification listener in the stock
+  app, no longer one after `modernize`): `SB Connect Compat`.
 - The two comparisons in `SbxDeviceManager.smali` of `getPackageName()` with
   the stock package, so the app keeps the stock host behavior under the new
   ID.

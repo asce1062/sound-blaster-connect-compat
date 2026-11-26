@@ -8,6 +8,7 @@
 | [decisions/](decisions/) | maintainers | architecture decision records |
 | [research/](research/) | anyone checking how behavior was established | historical research and validation records, errata, frozen-evidence checksums |
 | [PROVENANCE.md](PROVENANCE.md) | anyone checking where the contents come from | origin of each kind of content, license scope, what the published history contains |
+| [NOTICE.md](../NOTICE.md), [SECURITY.md](../SECURITY.md) | everyone | non-affiliation, what is and is not distributed, third-party components; reporting a vulnerability |
 
 ## Technical references
 

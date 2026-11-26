@@ -185,12 +185,11 @@ a file.
 
 ### Event delivery
 
-Since 2026-11-25, GitHub creates no push or pull-request events for the
-account that owns these repositories. Pushes are recorded in each
-repository's activity log, but no event and no check suite follows, so
-`ci.yml` does not start on its own
-([record](../research/android/CI_QUALIFICATION.md#event-delivery)). Until
-that is restored, start source CI by hand after each push:
+`ci.yml` starts on every push and pull request. From 2026-11-25 to
+2026-11-26 GitHub created no push or pull-request events for the account
+that owns these repositories, and no run started on its own
+([record](../research/android/CI_QUALIFICATION.md#event-delivery)). If that
+recurs (a push with no run under **Actions**), start source CI by hand:
 `gh workflow run ci.yml --ref <branch>`. The trusted workflows are
 dispatched in any case.
 

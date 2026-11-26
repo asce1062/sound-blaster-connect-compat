@@ -8,14 +8,17 @@ Blaster, Sound BlasterX, Sound Blaster Connect and Katana are names of
 Creative Technology Ltd and are used here only to identify the software and
 hardware this project works with.
 
-## The stock app is not distributed
+## What is distributed
 
 The pipeline operates on a copy of the stock Sound Blaster Connect 1.04.02
-APK that you supply. That APK, its code, resources and native libraries are
-Creative's software. This repository does not contain them and the project
-does not distribute them. An APK you build contains the stock app's code and
-resources together with this project's changes; you are responsible for how
-you use it.
+APK. That APK, its code, resources and native libraries are Creative's
+software. This repository and its history do not contain them, and the stock
+APK itself is not distributed.
+
+A `compat` APK, whether built by you or attached to a release, contains the
+stock app's code and resources with this project's changes applied. Whether
+to publish such a release is the project owner's decision. You are
+responsible for how you use an APK you build.
 
 The repository contains:
 

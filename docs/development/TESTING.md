@@ -50,8 +50,8 @@ JNI adapter's marshalling:
 
 [`compare.cmake`](../../tests/ctprotocol/compare.cmake) normalizes line
 endings and ignores lines that start with `#` on both sides. The harness
-echoes corpus comments in `seq` mode, and two corpora gained header comments
-after their outputs were captured. Every other line must match exactly.
+echoes corpus comments in `seq` mode, and two corpora carry header comments
+that their recorded outputs lack. Every other line must match exactly.
 
 What the host test does not cover: the JNI adapter source itself (the driver
 reimplements its marshalling), and the arm64 machine code. Both are exercised
@@ -138,7 +138,12 @@ and `dec_state`.
 
 ## Device runs
 
-The arm64 build has been run on a Pixel 7a (Android 13) and a Galaxy S24
-Ultra (Android 16) with one Katana speaker. The results are recorded in
-[ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md); the evidence limits
-are listed in [the research index](../research/README.md#evidence-limits).
+The arm64 build has run on a Pixel 7a (Android 13) and a Galaxy S24 Ultra
+(Android 16) with one Katana speaker
+([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md)). The `compat`
+build has run on the S24 Ultra and a Pixel 8, both Android 17, with the same
+speaker ([PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md));
+the production-signed v0.1.0 passed the release gates on the Pixel 8
+([PRODUCTION_CANDIDATE.md](../research/android/PRODUCTION_CANDIDATE.md)).
+The evidence limits are listed in
+[the research index](../research/README.md#evidence-limits).

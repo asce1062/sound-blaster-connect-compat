@@ -12,6 +12,7 @@ install one on a device. Tool versions and where they come from are in
 | Java 17 or later on `PATH` (or `-Djava_bin=`) | apktool 3.x and uber-apk-signer |
 | CMake 3.22 or later and Ninja | the pipeline; the Android SDK's `cmake/3.22.1` ships both |
 | `zipalign` from Android build-tools on `PATH` (or `-Dzipalign_bin=`) | the `resign` alignment check |
+| Android SDK build-tools `37.0.0` and platform `android-34`, exactly | `d8` and `android.jar` for the patch Java sources of `modernize`, `arm64` and `compat`; `apksigner`, `zipalign` and `aapt2` for release signing |
 | Android NDK `25.1.8937393`, exactly | the `arm64` and `compat` variants only |
 | `adb` on `PATH` (or `-Dadb_bin=`) | the `deploy` target only |
 | Network access on the first configure | downloading apktool 3.0.3 and uber-apk-signer 1.3.0 |

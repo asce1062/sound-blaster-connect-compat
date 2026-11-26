@@ -2,11 +2,12 @@
 
 Status: **not submitted, not needed so far.** This draft is used only if the
 user install route (file manager, then the system package installer) blocks a
-`compat` build on a device with Play Protect on. The debug-signed build with the
-reduced permission set is not blocked on a Pixel 8: Play Protect recommends a
+`compat` build on a device with Play Protect on. Neither the debug-signed build
+with the reduced permission set nor the production-signed v0.1.0
+(`63dcd889...`) is blocked on a Pixel 8 (Android 17): Play Protect recommends a
 scan and then reports it safe
-([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)). The release-signed
-APK has not been through the route. Play Protect is not disabled, bypassed or
+([PERMISSIONS.md](../technical/PERMISSIONS.md#play-protect)). The result
+covers those APKs on that device only. Play Protect is not disabled, bypassed or
 excluded to install the app, and an `adb install` is not presented as evidence
 that the user route works.
 
@@ -15,7 +16,7 @@ that the user route works.
 1. **A fixed APK.** The form identifies the app by the SHA-256 of one APK.
    Debug-signed builds differ per machine, so an appeal covers only a file
    that is actually distributed: the release APK signed with the project's
-   release key ([SIGNING.md](SIGNING.md)). No release-signed build exists yet.
+   release key ([SIGNING.md](SIGNING.md)).
 2. **The user-route result for that APK**, on a named device and Android
    version, with the exact dialog text.
 3. **VirusTotal.** The form asks for the hash "of the uploaded file on Virus

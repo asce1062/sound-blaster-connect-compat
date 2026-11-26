@@ -141,22 +141,23 @@ system never compares them. Configure writes the values to
 | Side-by-side install next to the `arm64` build, on a phone that has that build installed | Both packages listed, launcher activities resolved, no provider conflict. The `arm64` install's metadata and data (its presets, its recent music) are unchanged after the run | **Device** |
 | Native library load | `compat` runs under `zygote64` with ABI `arm64-v8a`. `sbxapplogic_ctprotocol_jni` loads from `lib/arm64` and the CtProtocol session starts after SPP connects. `serialport_jni` does not load (not used on the Bluetooth path). 4 KiB-page kernel | **Device** |
 | Katana | Discovery, SPP, device name, presets, sources, Now Playing. The master volume write is heard on the speaker and read back by the `arm64` app | **Device** |
-| Nearby Devices permission flow (API 37) | Requested on first launch. Discovery and connection follow the grant. Findings: a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices`, a repeated microphone request, and a location request. Superseded by the permission lifecycle ([ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md) row 11): on a Pixel 8 at API 37 the launch asks for Nearby devices and notifications only, once, with no pre-grant `SecurityException` | **Device** |
+| Nearby Devices permission flow (API 37) | With the permission lifecycle ([ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md) row 11), the launch asks for Nearby devices and notifications only, once, with no pre-grant `SecurityException` (Pixel 8). The build before it also asked for the microphone and location and logged a caught pre-grant `SecurityException` from `BluetoothA2dp.getConnectedDevices` | **Device** |
 | Component exports | From the shell uid, `MainReceiver` and `MediaButtonReceiver` broadcasts are not delivered and `MainService` is refused as not exported. The foreground service starts from the app itself after SPP connects | **Device** |
 | Boot | `BOOT_COMPLETED` reaches `MainReceiver` of `compat` and of the `arm64` install; each starts its process and `MainService` | **Device** |
-| Play Protect, user route | A debug-signed `compat` with the stock permission set opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds and does not qualify the user route. Superseded for the build with the reduced permission set: on a Pixel 8 Play Protect recommends a scan, reports the app safe and it installs ([PERMISSIONS.md](PERMISSIONS.md#play-protect)) | **Device** |
+| Play Protect, user route | A debug-signed `compat` with the stock permission set opened from the file manager is blocked: "App blocked to protect your device", with no install-anyway option. An ADB install succeeds and does not qualify the user route. With the reduced permission set, Play Protect recommends a scan, reports the app safe and it installs, for a debug-signed build and for the production-signed v0.1.0 on a Pixel 8 ([PERMISSIONS.md](PERMISSIONS.md#play-protect)) | **Device** |
+| v0.1.0 under `com.creative.apps.sbconnect.compat`, production-signed | User install, first launch, native library load from `lib/arm64`, Katana connection, presets, a reversible volume write, revocation and recovery, and an update signed with the same key that keeps the app's data (Pixel 8, API 37) | **Device** |
 
 Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md),
-[PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md).
-The user route for a release-signed APK is the open distribution item. The
+[PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md),
+[PRODUCTION_CANDIDATE.md](../research/android/PRODUCTION_CANDIDATE.md). The
 identity itself (package, label, versions, provider authority, data
 separation, package-relative code paths) behaves as specified on the device.
 
-The **Emulator** and **Device** rows above were observed under the first
-application ID, `io.github.asce1062.sbconnect.compat`, before the ID was
-changed to `com.creative.apps.sbconnect.compat`
-([0008](../decisions/0008-separate-distribution-identity.md)). The identity
-patch is otherwise unchanged; the device rows have not yet been repeated
+The **Emulator** rows and the **Device** rows other than v0.1.0 were
+observed under the first application ID, `io.github.asce1062.sbconnect.compat`
+([0008](../decisions/0008-separate-distribution-identity.md)); the identity
+patch is otherwise unchanged. The side-by-side install next to an `arm64`
+build, the shell-uid export checks and the boot delivery were not repeated
 under the current ID.
 
 ## Sources

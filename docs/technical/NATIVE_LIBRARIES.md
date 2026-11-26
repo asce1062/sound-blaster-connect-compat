@@ -8,7 +8,7 @@ This document describes the two native libraries the arm64 variant adds to the A
 |---|---|
 | **Oracle** | Reproduced by a recorded vector in [`oracle/vectors/`](../../oracle/vectors/) run through the stock x86 library and the x86 build of this source on the emulator, with byte-identical output. |
 | **Host test** | Covered by CTest in [`tests/ctprotocol/`](../../tests/ctprotocol/) on a 64-bit host. |
-| **Device** | Observed on a Pixel 7a (Android 13) and a Galaxy S24 Ultra (Android 16), both 64-bit only ([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md)). Raw logs were not preserved; excerpts are in [`docs/research/arm64/runtime/`](../research/arm64/runtime/). |
+| **Device** | Observed on 64-bit-only phones: a Pixel 7a (Android 13) and a Galaxy S24 Ultra (Android 16) with the earlier builds ([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md); raw logs not preserved, excerpts in [`docs/research/arm64/runtime/`](../research/arm64/runtime/)), and the S24 Ultra and a Pixel 8 (Android 17) with the current libraries ([PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md), [PRODUCTION_CANDIDATE.md](../research/android/PRODUCTION_CANDIDATE.md)). |
 | **Static** | Read from source, build files or recorded hashes. **Static (recorded)** marks a statement resting on a recorded hash or note that a rebuild has not re-derived. |
 
 ## Libraries
@@ -71,7 +71,7 @@ The pinned NDK, the fixed flags, the path remapping and the content-hash build i
 | `libsbxapplogic_ctprotocol_jni.so` | 27736 | `970d1744d765e80a3e4b82854add4dd1d96402f0841b0a78070f9d80432d7836` |
 | `libserialport_jni.so` | 6696 | `ca380c7c549c197777d8b76a1c763806030992da4fe0af74e6cf47f8d9eff232` |
 
-A build with a different NDK revision is not expected to match. Before the 16 KiB link flag, the same source built to `66797a4e...` and `2db91e4a...`, the hashes of the fresh-clone check in [PROVENANCE.md](../PROVENANCE.md); the two builds differ only as described under [16 KiB page size](#16-kib-page-size).
+A build with a different NDK revision is not expected to match. Without the 16 KiB link flag the same source builds to `66797a4e...` and `2db91e4a...`, the hashes of the fresh-clone check in [PROVENANCE.md](../PROVENANCE.md); the two builds differ only as described under [16 KiB page size](#16-kib-page-size).
 
 Hardware-validated builds, recorded as historical values ([ARM64_RUNTIME.md](../research/arm64/ARM64_RUNTIME.md), [ARM64_BUILD.md](../research/arm64/ARM64_BUILD.md)):
 
@@ -80,7 +80,7 @@ Hardware-validated builds, recorded as historical values ([ARM64_RUNTIME.md](../
 | `libsbxapplogic_ctprotocol_jni.so` | 136928 | `ef9bad520bd1c94d9a942857425b80722d650190dd120dad8d9d070490e52c6e` | `libm`, `libdl`, `libc` |
 | `libserialport_jni.so` | 30512 | `e50efa5e59d111a695b6eb7d1457824df03921f53eb6e4eda04fc524f4d58a87` | `liblog`, `libm`, `libdl`, `libc` |
 
-These are the files the device runs used. The current from-source build does not have these hashes, and no recorded comparison relates it to them section by section. Do not use the table as a build-verification target.
+These are the files the Pixel 7a and API 36 runs used. The current from-source build does not have these hashes, and no recorded comparison relates it to them section by section. Do not use the table as a build-verification target. The current libraries, with the hashes above it, are the ones the API 37 runs used.
 
 ### 16 KiB page size
 
@@ -136,7 +136,7 @@ until such a device runs them.
 4. The pipeline rebuilds and signs the APK from the tree. The stock `lib/` entries are not touched.
 5. The stock APK is a local input, not stored in the repository; the build takes it from a configured path ([`patches/arm64/README.md`](../../patches/arm64/README.md)).
 
-**Static.** No binary is committed as an overlay: earlier records describe the libraries as staged under `patches/arm64/overlay/lib/arm64-v8a/`, which is superseded by the source build above.
+**Static.** No binary is committed as an overlay ([superseded records](#where-the-research-records-are-superseded)).
 
 ## Stock 32-bit libraries
 
@@ -194,7 +194,7 @@ Rows are components, columns are evidence sources. "Yes" means a recorded run co
 | `JNI_OnLoad` callback cache | Yes (x86) | No | Yes: loads on both devices |
 | serialport (`serialport.c`) | No | No | No (never exercised) |
 | Build reproducibility | n/a | n/a | n/a; two clean clones give identical library hashes ([Reproducibility](#reproducibility)) |
-| arm64 install and launch | n/a | n/a | Yes: Pixel 7a, Galaxy S24 Ultra; RFCOMM connection to the Katana; dashboard and preset screens reached |
+| arm64 install and launch | n/a | n/a | Yes: Pixel 7a, Galaxy S24 Ultra, Pixel 8; RFCOMM connection to the Katana; dashboard and preset screens reached |
 | Hardware protocol correctness | n/a | n/a | Not claimed |
 
 The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_state`, `dec_stream` and the supplementary `dec_reject_gaps`. `compare.cmake` ignores lines that begin with `#`, so comment-line differences between a run and the recorded file do not fail a case. The suite passes with MSVC and with gcc.
@@ -202,7 +202,7 @@ The CTest names are `enc_stock`, `dec_entry`, `dec_valid`, `dec_reject`, `dec_st
 ## Verification gaps
 
 - No arm64 run of the oracle vectors exists. arm64 behavior is inferred from identical source, 64-bit host tests and device runs.
-- The `.so` files are not checked into the repository, and no recorded rebuild compares the current build output with the hardware-validated hashes.
+- The `.so` files are not checked into the repository. The current libraries ran on the API 37 devices; the earlier API 33 and API 36 runs used other builds, which no recorded comparison relates to them.
 - `libserialport_jni.so` has no test of any kind.
 - No arm64 device with 16 KiB pages has run the arm64 libraries natively; their 16 KiB readiness rests on the ELF alignment and a translated load on a 16 KiB-page x86_64 emulator ([16 KiB page size](#16-kib-page-size)). CI checks the alignment of every build.
 - The device runs bound every native method and showed live traffic, but they do not compare encoder or decoder output against a reference. The stock Java `CtProtocolMgr` swallows an `ArrayIndexOutOfBoundsException` on some live frames; that is outside the native libraries ([ARM64_VERDICT.md](../research/arm64/ARM64_VERDICT.md)).

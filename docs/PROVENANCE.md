@@ -32,10 +32,11 @@ published commit contains:
 The rewrite did not change the tree at its tip, commit `87d980a`. Commit
 hashes cited in [research records](research/README.md) are rewritten hashes
 of the same commits. A fresh clone builds every variant; the arm64 native
-libraries and all 4,312 entries of the arm64 APK are byte-identical to the
-build from before the rewrite. The detailed rewrite records and an
-old-to-new commit map are kept privately with an offline baseline of the
-pre-rewrite repository.
+libraries are byte-identical to the build from before the rewrite, and all
+4,312 entries of the arm64 APK have the same uncompressed bytes. The APK
+files themselves differ, as any two builds do (signatures, ZIP timestamps).
+The detailed rewrite records and an old-to-new commit map are kept privately
+with an offline baseline of the pre-rewrite repository.
 
 ## Evidence limits
 

@@ -1,6 +1,6 @@
 # Permissions and security model
 
-This document describes the security model of the built Sound Blaster Connect APK (package `com.creative.apps.sbconnect`, targetSdk 34 in the `modernize` and `arm64` variants, targetSdk 26 in `resign`): every declared permission with its origin, protection level, runtime request path and feature; the final export value of every manifest component and the reason for it; the exposure of runtime-registered receivers; and the signing identity with its consequences, including observed Play Protect behavior. The `resign` variant carries the stock manifest unchanged; everything marked "added", "removed" or "capped" below applies to `modernize` and `arm64`. The `compat` variant has the `arm64` manifest under the package `com.creative.apps.sbconnect.compat`, with the provider authority renamed to match; its permissions and component exports are those of `arm64` ([APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md)). The behavior changes themselves are described in [ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md); the inventory and decisions behind the permission lifecycle are in [PERMISSION_LIFECYCLE.md](../research/android/PERMISSION_LIFECYCLE.md).
+This document describes the security model of the built APKs (the stock-identity variants under package `com.creative.apps.sbconnect`, targetSdk 34 in `modernize` and `arm64`, targetSdk 26 in `resign`; the distributed `compat` build under `com.creative.apps.sbconnect.compat`): every declared permission with its origin, protection level, runtime request path and feature; the final export value of every manifest component and the reason for it; the exposure of runtime-registered receivers; and the signing identity with its consequences, including observed Play Protect behavior. The `resign` variant carries the stock manifest unchanged; everything marked "added", "removed" or "capped" below applies to `modernize` and `arm64`. The `compat` variant has the `arm64` manifest under the package `com.creative.apps.sbconnect.compat`, with the provider authority renamed to match; its permissions and component exports are those of `arm64` ([APPLICATION_IDENTITY.md](APPLICATION_IDENTITY.md)). The behavior changes themselves are described in [ANDROID_COMPATIBILITY.md](ANDROID_COMPATIBILITY.md); the inventory and decisions behind the permission lifecycle are in [PERMISSION_LIFECYCLE.md](../research/android/PERMISSION_LIFECYCLE.md).
 
 ## Verification basis
 
@@ -96,7 +96,7 @@ Rationale: before Android 13 every dynamically registered receiver was implicitl
 - Protected system broadcasts reach these receivers regardless of the flag (**Expected**).
 - Any app on the device can send a matching non-protected action to a runtime-registered receiver on API 34+, as it could on the stock app (**Expected**).
 - The build does not classify sites. `RECEIVER_NOT_EXPORTED` was not evaluated per site, so some of the 96 may not need export (**Static** limit).
-- Behavior on API 36 with `RECEIVER_EXPORTED`: launch without a crash and Dashboard reached (**Device**, S24 Ultra). `runtime/s24_launch.txt` states 78 sites; that figure is superseded by the 96 asserted in `patch.cmake`.
+- Behavior on API 36 with `RECEIVER_EXPORTED`: launch without a crash and Dashboard reached (**Device**, S24 Ultra). The site count is the 96 asserted in `patch.cmake` (the 78 in `runtime/s24_launch.txt` is superseded).
 
 ## Signing identity
 
@@ -110,7 +110,7 @@ Rationale: before Android 13 every dynamically registered receiver was implicitl
 
 The signer is **Build** (signing runs in the variant build); the certificate values and scheme list are **Static** records. The stock APK carries `META-INF/CERT.RSA`/`CERT.SF`; outputs carry `META-INF/ANDROIDD.RSA`/`ANDROIDD.SF`. Package name, versionName 1.04.02, versionCode 10402 and minSdk 14 are unchanged, so the system treats an output as the same app identity signed by a different author (**Static**).
 
-The records differ on one point: `PIPELINE.md` describes the debug key as the per-machine `~/.android/debug.keystore`, while `APP_IDENTITY.md` calls it the uber-apk-signer default. The certificate fingerprint above is recorded identically for all variants. This document does not determine which keystore signs a given build, and makes no claim that the key is secret.
+The debug key is not secret and may differ between machines (`PIPELINE.md` and `APP_IDENTITY.md` name different keystores); the fingerprint above is the one recorded for all variants.
 
 Consequences:
 
@@ -119,7 +119,7 @@ Consequences:
 3. **Signature-level permissions are never granted.** Any `signature` or `signature|privileged` permission stays ungranted to a debug-signed sideload (**Expected**); the build no longer declares or requests one.
 4. **v2 or later is required at target 30 and above.** The stock app's v1-only signature suffices at its own target 26; the re-targeted outputs carry v2 and v3 (**Expected** platform rule). The device reported `apkSigningVersion=4` for the arm64 build (**Device**, recorded value).
 5. **Outputs are sideload-only.** The Creative private key is unavailable.
-6. **Release signing.** `compat` has test-release and release targets that sign with an externally supplied key, v1, v2 and v3, and check the certificate against an expected SHA-256 ([SIGNING.md](../development/SIGNING.md)). A test-release build updated an earlier build signed with the same key and kept its data, and a build signed with another key was refused as an update (**Emulator**, API 30; [RELEASE_SIGNING.md](../research/android/RELEASE_SIGNING.md)). The production key, which would give every release one signer, does not exist yet.
+6. **Release signing.** `compat` has test-release and release targets that sign with an externally supplied key, v1, v2 and v3, and check the certificate against an expected SHA-256 ([SIGNING.md](../development/SIGNING.md)). A test-release build updated an earlier build signed with the same key and kept its data, and a build signed with another key was refused as an update (**Emulator**, API 30; [RELEASE_SIGNING.md](../research/android/RELEASE_SIGNING.md)). Every release is signed with the one production key, `CN=SB Connect Compat`, certificate SHA-256 `3c726afa...` ([SIGNING.md](../development/SIGNING.md#the-production-key)); a labelled build signed with it updated the v0.1.0 install on the Pixel 8 and kept its data (**Device**, [PRODUCTION_CANDIDATE.md](../research/android/PRODUCTION_CANDIDATE.md)).
 
 ## Play Protect
 
@@ -132,7 +132,7 @@ Play Protect is not disabled, bypassed, patched or excluded by this project. The
 | Post-install, across repeated reinstall and test cycles | No automatic removal or disable event | **Device** |
 | User route: file manager, then the system package installer, `compat` candidate before the lifecycle change | "App blocked to protect your device", reason that the app can request access to sensitive data, only "Got it"; the installer then reports "App not installed" | **Device** (S24 Ultra, API 37; [PERMISSION_FINDINGS.md](../research/android/PERMISSION_FINDINGS.md) PF8) |
 | User route with the reduced permission set and no notification listener, debug-signed (file manager Solid Explorer, then the system package installer) | "App scan recommended": Play Protect has not seen the app, with **Scan app**, **Don't install app** and **Install without scanning**. **Scan app** sends the APK to Google; the result is "This app looks safe", then **Install** installs it (installer `com.google.android.packageinstaller`). The app starts with its first-launch dialogs | **Device** (Pixel 8, API 37; [PERMISSION_REGRESSION.md](../research/android/PERMISSION_REGRESSION.md)) |
-| User route with a release-signed APK | Not run; no release key exists. The scan above covers one debug-signed file; a release-signed APK is a different file with a different certificate, so the result does not carry over to it | |
+| User route with the production-signed v0.1.0 (`63dcd889...`, certificate `3c726afa...`), file manager, then the system package installer | "App scan recommended", **Scan app**, "This app looks safe", **Install** installs it (installer `com.google.android.packageinstaller`, package source: downloaded file) | **Device** (Pixel 8, API 37; [PRODUCTION_CANDIDATE.md](../research/android/PRODUCTION_CANDIDATE.md)) |
 | Distribution through the Play Store | Not applicable; not distributed there | n/a |
 
 Google's developer guidance for Play Protect warnings describes "App blocked
@@ -143,10 +143,10 @@ accessibility service. The stock manifest declares a notification listener
 and none of the others; the `modernize` patch removes it, so the current build
 declares none of the four (**Static**). The build without them is not blocked
 on the user route; it gets the scan prompt above instead (**Device**). That
-removing these four is what changed the outcome is consistent with the
-guidance and not shown in isolation: the blocked build ran on the S24 Ultra
-and the scanned one on a Pixel 8, and the builds also differ in other
-permissions. An appeal goes
+the removal causes the different outcome is consistent with the guidance
+but not isolated: the blocked and the scanned builds ran on different
+phones and differ in other permissions. Each scan result covers the exact
+APK and certificate scanned. An appeal goes
 through Google's Play Protect appeals form, which asks for the package name and
 the SHA-256 of the APK as submitted to VirusTotal; Google states that its
 decisions are final and that it sends no reply. Separately, Google's Android

@@ -46,7 +46,7 @@ keep their results.
 | [45852169074](https://github.com/asce1062/sound-blaster-connect-compat/actions/runs/45852169074) | CI | `dbd5df5` | success | 51 s (jobs) |
 | [45852175919](https://github.com/asce1062/sound-blaster-connect-compat/actions/runs/45852175919) | Build APKs | `dbd5df5` | success | 4 min 16 s |
 
-Every run was dispatched. Pushes start no workflow runs; see
+Every run was dispatched. Pushes started no workflow runs at the time; see
 [Event delivery](#event-delivery).
 
 ## Failures and corrective commits
@@ -209,8 +209,9 @@ APK asset still has SHA-256 `63dcd889...`.
 
 ## Event delivery
 
-Pushes and pull requests start no workflow runs, in this repository or in
-any other repository of the account. Dispatch (`workflow_dispatch`) works.
+During the qualification, pushes and pull requests started no workflow
+runs, in this repository or in any other repository of the account.
+Dispatch (`workflow_dispatch`) worked.
 
 | Check | Result |
 |---|---|
@@ -225,17 +226,21 @@ any other repository of the account. Dispatch (`workflow_dispatch`) works.
 | account | the public profile resolves (HTTP 200); no flag is visible |
 | GitHub status | every component operational |
 
-The repository and workflow configuration do not explain it, and GitHub
-records the pushes without creating the events that start runs. The cause
-is on GitHub's side of the account and needs GitHub Support. Until it is
-resolved, every run is dispatched:
+The repository and workflow configuration do not explain it: GitHub
+recorded the pushes without creating the events that start runs, on its
+side of the account. No setting, token or workflow was changed to end it.
 
-```sh
-gh workflow run ci.yml --ref <branch>
-```
+Delivery resumed on 2026-11-26, with the triggers unchanged:
 
-The push and pull-request triggers stay declared, so they take effect
-without a change once events are delivered.
+| Event | Commit | Run |
+|---|---|---|
+| push, build-input repository, branch `source` (16:58:10Z) | `4c9c487` | `45863574026`, CI |
+| push, compat repository, branch `phase-f/publication` | `4c9c487` | `45863923205`, CI |
+| push, compat repository, probe branch `ci/push-probe` | `5de2bd3` | `45864019276`, CI |
+| pull request, probe draft pull request into `main`, synchronize | `5de2bd3` | `45864023920`, CI |
+
+If a push again starts no run, `gh workflow run ci.yml --ref <branch>`
+starts source CI by hand.
 
 ## Relocation
 
@@ -263,6 +268,6 @@ key into the build-input repository are removed.
 | PRODUCTION_SIGNING_BOUNDARY_PASS | release mode fails closed without the production secrets; mode `local` verifies the locally signed APK with no key in CI |
 | RELEASE_CANDIDATE_PASS | `63dcd889...` from `596f3bb`, certificate `3c726afa...`, unchanged, verified by CI against the runner's own build |
 
-Limitation: pushes start no workflow runs ([Event delivery](#event-delivery)).
-The two drafts stay unpublished in the private repository. Publishing one,
+Limitation at the time: pushes started no workflow runs; delivery has
+since resumed ([Event delivery](#event-delivery)). The two drafts stay unpublished in the private repository. Publishing one,
 and the repository's visibility, remain the operator's decisions.

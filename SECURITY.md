@@ -38,11 +38,17 @@ Only the latest release, and `main`, receive fixes.
 
 - No signing key, password or keystore is in the repository; keystore and
   key files are refused by the hygiene check that runs on every change.
-- Signing credentials exist only in GitHub environments with deployment
-  policies and, for production, a required reviewer. Pull-request code never
-  runs with them ([CI.md](docs/development/CI.md#trust-model)).
+- The production key and its password exist only on the maintainer's
+  machine; releases are signed there. CI holds only a disposable test key,
+  in an environment of a private build-input repository. This repository's
+  workflows hold no secrets, so pull-request code never reaches one
+  ([CI.md](docs/development/CI.md#trust-model)).
 - The stock APK is a private, SHA-256-pinned build input, fetched only by
-  trusted workflows; it is not in this repository or its history.
+  the trusted workflows in that private repository; it is not in this
+  repository or its history.
+
+This project is not affiliated with Creative Technology Ltd; Creative does
+not handle reports about it ([NOTICE.md](NOTICE.md)).
 
 If you believe a signing key or credential has been exposed, report it as a
 vulnerability at once.

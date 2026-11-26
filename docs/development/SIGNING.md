@@ -13,8 +13,9 @@ signing step checks. The release process that uses it is in
 | test-release | `apk-compat-test-release` | a disposable key, `SBC_TEST_RELEASE_*` | `build/test-release/sbconnect-compat-<tag>-test-release.apk` |
 | release | `apk-compat-release` | the production key, `SBC_RELEASE_*` | `build/release/sbconnect-compat-<tag>.apk` |
 
-- **debug** is unchanged from the earlier pipeline. The `resign` control is
-  still debug-signed and still verified payload-identical to the stock APK.
+- **debug** signs every variant with uber-apk-signer's debug key. The
+  `resign` control is debug-signed and verified payload-identical to the
+  stock APK.
 - **test-release** runs the release pipeline with a throwaway key. It exists
   to rehearse signing, verification and updates; its APKs are never
   published.

@@ -25,8 +25,9 @@ default.
   id differ.
 - The x86 oracle build is byte-identical to the one the differential ran, so
   the oracle results still apply.
-- A 16 KiB-aligned library is valid on 4 KiB and 16 KiB pages alike. Neither
-  case has been run on a device for this build yet.
+- A 16 KiB-aligned library is valid on 4 KiB and 16 KiB pages alike. These
+  libraries run on 4 KiB-page phones (Pixel 8, Galaxy S24 Ultra, API 37);
+  no 16 KiB-page arm64 phone has run them.
 - A later NDK upgrade can drop the flag; it is then the default.
 
 Detail: [NATIVE_LIBRARIES.md](../technical/NATIVE_LIBRARIES.md#16-kib-page-size).
