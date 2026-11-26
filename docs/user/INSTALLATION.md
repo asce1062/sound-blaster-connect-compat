@@ -35,7 +35,7 @@ which deletes the app's settings.
 
 `compat` is the `arm64` build under its own name: it appears as
 **SB Connect Compat**, has the package name
-`io.github.asce1062.sbconnect.compat`, and installs next to the stock app
+`com.creative.apps.sbconnect.compat`, and installs next to the stock app
 instead of replacing it. The other builds keep the stock name and package.
 
 How to tell: `adb shell getprop ro.product.cpu.abilist32` prints nothing on

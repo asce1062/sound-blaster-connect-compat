@@ -35,7 +35,7 @@ outcome is visible only by retesting the user route.
 |---|---|
 | Email address | project contact (to be chosen) |
 | Developer name | project maintainer name as published |
-| Application package name | `io.github.asce1062.sbconnect.compat` |
+| Application package name | `com.creative.apps.sbconnect.compat` |
 | SHA-256 of the APK on VirusTotal | release APK hash (to be filled) |
 | Additional information | text below |
 

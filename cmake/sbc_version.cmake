@@ -26,7 +26,9 @@ include_guard(GLOBAL)
 set(sbc_upstream_version "1.04.02")
 set(sbc_upstream_version_code "10402")
 
-set(sbc_app_id "io.github.asce1062.sbconnect.compat")
+# The stock application ID plus ".compat": it names the app this is a
+# compatibility build of, and installs as a separate package next to it.
+set(sbc_app_id "com.creative.apps.sbconnect.compat")
 set(sbc_app_label "SB Connect Compat")
 
 foreach(part MAJOR MINOR PATCH)

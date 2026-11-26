@@ -80,7 +80,7 @@ Outputs, in `build/`:
 | `sbc_resign-aligned-debugSigned.apk` | `resign`: the stock archive re-signed, payload verified identical |
 | `sbc_modernize-aligned-debugSigned.apk` | `modernize`: targetSdk 34 and the platform fixes |
 | `sbc_arm64-aligned-debugSigned.apk` | `arm64`: `modernize` plus arm64-v8a libraries built from source |
-| `sbc_compat-aligned-debugSigned.apk` | `compat`: `arm64` with the application ID `io.github.asce1062.sbconnect.compat`, label SB Connect Compat and the project version |
+| `sbc_compat-aligned-debugSigned.apk` | `compat`: `arm64` with the application ID `com.creative.apps.sbconnect.compat`, label SB Connect Compat and the project version |
 | `release.env` | the version metadata of [`cmake/sbc_version.cmake`](../../cmake/sbc_version.cmake) as `KEY=VALUE` lines |
 
 Each debug-signed APK has a matching `.idsig` file (APK Signature Scheme v4)
@@ -127,7 +127,7 @@ Editing files in `decompiled/` re-stages the variants on the next build.
 | `adb_serial` | empty | device serial for `deploy` |
 | `android_sdk_root` | `ANDROID_SDK_ROOT`, `ANDROID_HOME` or `%LOCALAPPDATA%/Android/Sdk` | SDK holding the signing build-tools |
 | `android_build_tools_version` | `37.0.0` | build-tools release of `apksigner`, `zipalign` and `aapt2` for release signing |
-| `sbc_package` | `com.creative.apps.sbconnect` | stock application ID of the `resign`, `modernize` and `arm64` variants. `deploy` launches the package of the chosen variant, so `compat` launches `io.github.asce1062.sbconnect.compat` |
+| `sbc_package` | `com.creative.apps.sbconnect` | stock application ID of the `resign`, `modernize` and `arm64` variants. `deploy` launches the package of the chosen variant, so `compat` launches `com.creative.apps.sbconnect.compat` |
 | `sbc_prerelease` | empty | pre-release label appended to the `compat` versionName, tag and file name; the versionCode is unchanged ([SIGNING.md](SIGNING.md#pre-release-label)) |
 
 ## Comparing builds

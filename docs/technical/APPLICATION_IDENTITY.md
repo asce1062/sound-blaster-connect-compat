@@ -22,15 +22,15 @@ document and the build files disagree, the build files are correct.
 
 | Field | Stock, `resign`, `modernize`, `arm64` | `compat` |
 |---|---|---|
-| Application ID (`package`) | `com.creative.apps.sbconnect` | `io.github.asce1062.sbconnect.compat` |
+| Application ID (`package`) | `com.creative.apps.sbconnect` | `com.creative.apps.sbconnect.compat` |
 | Label (application, launcher, `LocalMusicRemoteControllerService`) | `@string/app_name`, `@string/launcher_name` (Sound Blaster Connect) | `SB Connect Compat` |
 | versionName | `1.04.02` | `1.04.02-compat.0.1.0` |
 | versionCode | `10402` | `1000` |
-| Measurement provider authority | `com.creative.apps.sbconnect.google_measurement_service` | `io.github.asce1062.sbconnect.compat.google_measurement_service` |
+| Measurement provider authority | `com.creative.apps.sbconnect.google_measurement_service` | `com.creative.apps.sbconnect.compat.google_measurement_service` |
 | Java packages and class names | `com.creative.*` | unchanged |
 | JNI class names | `com/creative/logic/...`, `com/creative/serialport/SerialPort` | unchanged |
 | Internal intent actions | `com.creative.apps.sbconnect.action.*` | unchanged |
-| Resource table package | `com.creative.apps.sbconnect`, id `0x7f` | `io.github.asce1062.sbconnect.compat`, id `0x7f` |
+| Resource table package | `com.creative.apps.sbconnect`, id `0x7f` | `com.creative.apps.sbconnect.compat`, id `0x7f` |
 
 The `resign`, `modernize` and `arm64` variants keep the stock identity. They
 are the controls: `resign` is payload-identical to the stock archive
@@ -66,7 +66,7 @@ action names (below).
 apktool 3.0.3 has no option to rename the manifest package. Editing the
 `package` attribute is enough: aapt2 names the resource table after the
 manifest package, so resources resolve under the new name. **Artifact**
-(`aapt2 dump`: `Package name=io.github.asce1062.sbconnect.compat id=7f`)
+(`aapt2 dump`: `Package name=com.creative.apps.sbconnect.compat id=7f`)
 
 ## Package-dependence audit
 
@@ -80,7 +80,8 @@ new ID keeps the stock behavior. **Static** unless noted.
 | Content provider authority | One provider, `AppMeasurementContentProvider`, authority `<package>.google_measurement_service`. The class does not compare its authority with anything. Authorities are unique per device. | Renamed so `compat` can be installed next to the stock app. |
 | Hardcoded package string, host check | `SbxDeviceManager.a(Z)V` (query of the connected device) compares `getPackageName()` with `com.creative.apps.sbconnect`. For the stock package, offline browsing leaves the device name unset; any other package sets it from saved preferences. `SbxDeviceManager.a(Landroid/content/Context;)V` makes the same comparison, and both of its branches set the same device name. | Both comparisons name the new ID, so `compat` takes the stock host path. This is the one contract that fails if only the manifest changes. **Build** (2 sites) |
 | Hardcoded package strings, actions | `MainService` uses `com.creative.apps.sbconnect.action.PLAY_PAUSE` in an explicit-component `PendingIntent` and `com.creative.apps.sbconnect.action.START_SERVICE` in an implicit broadcast from `onDestroy`. Both are action names, matched by string, not by package. | Unchanged. The implicit `START_SERVICE` broadcast does not reach manifest receivers on API 26 and later for either package. |
-| Other-app package checks | Comparisons with other Creative app packages (`avatarconnect`) are false for the stock ID and for the new ID alike. | Unchanged behavior. |
+| Other-app package checks | Comparisons with other Creative app packages (`avatarconnect`) and the `getPackageInfo` lookup of `com.creative.apps.sbxaceremote` in `MainActivity` are false for the stock ID and for the new ID alike. | Unchanged behavior. |
+| Prefix and substring matches | The new ID begins with the stock ID. No code compares a package name by prefix (`startsWith`). The one substring match is the notification-listener check in `LocalMusicManager`, `enabled_notification_listeners.contains(getPackageName())`: the stock app would count an enabled `compat` listener as its own, but `compat` declares no notification listener (`modernize` removes it), so neither app sees the other's entry. | Unchanged behavior. |
 | `getPackageName()` consumers | 45 call sites in app code: broadcasts scoped with `setPackage(getPackageName())`, `bindService`, 13 `Resources.getIdentifier(name, type, getPackageName())` lookups (`ProfileDetailFragment$10`, `SbxModifiableProfileMainFragment$InstalledProfileAdapter`, `Utils`), `RemoteViews`, `getPackageInfo` and `getApplicationInfo` on the app itself, a `VoiceMorphFragment` URI, the notification-listener check in `LocalMusicManager`, and the main-process check in `smali_classes2`. Each uses the running package as an opaque value. | Self-relative: they follow the new ID. `getIdentifier` resolves because the resource table carries the new name. |
 | Broadcast scope | 15 sends are scoped to the app's own package. 2 are unscoped: the iBluz disconnect broadcast, which carries the sender's package as an extra and is meant for other apps, and `START_SERVICE`. | Scoped sends follow the new ID; the unscoped ones do not depend on it. |
 | Reflection | `Class.forName` names only library and framework classes. | Unaffected. |
@@ -150,6 +151,13 @@ Device runs: [HARDWARE_VALIDATION.md](../research/android/HARDWARE_VALIDATION.md
 The user route for a release-signed APK is the open distribution item. The
 identity itself (package, label, versions, provider authority, data
 separation, package-relative code paths) behaves as specified on the device.
+
+The **Emulator** and **Device** rows above were observed under the first
+application ID, `io.github.asce1062.sbconnect.compat`, before the ID was
+changed to `com.creative.apps.sbconnect.compat`
+([0008](../decisions/0008-separate-distribution-identity.md)). The identity
+patch is otherwise unchanged; the device rows have not yet been repeated
+under the current ID.
 
 ## Sources
 

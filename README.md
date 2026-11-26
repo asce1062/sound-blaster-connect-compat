@@ -29,7 +29,7 @@ One build produces four independent APKs:
 | `resign` | Nothing: the stock archive re-signed, payload verified identical | phones that still run 32-bit apps |
 | `modernize` | targetSdk 34 and the Android 12 to 14 fixes | phones that still run 32-bit apps |
 | `arm64` | `modernize` plus arm64-v8a native libraries built from source | 64-bit-only phones, and the others |
-| `compat` | `arm64` under its own application ID, `io.github.asce1062.sbconnect.compat`, labelled SB Connect Compat | the distributable build; installs next to the stock app |
+| `compat` | `arm64` under its own application ID, `com.creative.apps.sbconnect.compat`, labelled SB Connect Compat | the distributable build; installs next to the stock app |
 
 The first three keep the stock package name and serve as controls. `compat`
 is the build meant for distribution

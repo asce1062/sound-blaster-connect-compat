@@ -7,7 +7,7 @@ patch. The other variants do not apply it and keep the stock identity.
 ## What it changes
 
 - Manifest `package`: `com.creative.apps.sbconnect` ->
-  `io.github.asce1062.sbconnect.compat`.
+  `com.creative.apps.sbconnect.compat`.
 - The authority of the `google_measurement_service` provider, which must be
   unique per device.
 - The labels of the application, `MainActivity` and the notification-listener

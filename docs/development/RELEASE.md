@@ -49,7 +49,7 @@ an issue, a commit, a file in a repository or a command line.
 
 1. Choose the alias and validity. Android checks an update only against the
    signer of the installed app, so this key signs every release for the life
-   of the application ID `io.github.asce1062.sbconnect.compat`. Use the alias
+   of the application ID `com.creative.apps.sbconnect.compat`. Use the alias
    `sbconnect-compat` and a validity of 10000 days (27 years); the Play
    requirement for app keys is past 2033, and 25 years is the usual floor.
 2. Choose the keystore location: a directory outside every repository and

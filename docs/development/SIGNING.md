@@ -133,7 +133,7 @@ release:
 BT=<sdk>/build-tools/37.0.0
 cmake -DMODE=release -DAPK=sbconnect-compat-v0.1.0.apk \
       -DCERT_SHA256=<published certificate SHA-256> \
-      -DPACKAGE=io.github.asce1062.sbconnect.compat \
+      -DPACKAGE=com.creative.apps.sbconnect.compat \
       -DVERSION_CODE=1000 -DVERSION_NAME=1.04.02-compat.0.1.0 \
       -DABIS=arm64-v8a,armeabi,armeabi-v7a,x86 -DWORK=/tmp/sbc-verify \
       -DAPKSIGNER=$BT/apksigner -DZIPALIGN=$BT/zipalign -DAAPT2=$BT/aapt2 \
