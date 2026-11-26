@@ -10,7 +10,7 @@ the release process in [RELEASE.md](RELEASE.md).
 |---|---|---|---|---|
 | [`ci.yml`](../../.github/workflows/ci.yml) | every push and pull request, dispatch | no | none | test results, native library hashes |
 | [`build-apk.yml`](../../.github/workflows/build-apk.yml) | push to `main`, dispatch, called by `release.yml` | yes, from the private input repository | input deploy key (`build-inputs`) | the four variants; artifacts only while the repository is private |
-| [`release.yml`](../../.github/workflows/release.yml) | tag `v*`, dispatch | through `build-apk.yml` | signing key (`release` or `release-rehearsal`), signing job only | signed APK, `.sha256`, `.json`, notes, inventory, a draft release |
+| [`release.yml`](../../.github/workflows/release.yml) | tag `v*`, dispatch | through `build-apk.yml` | signing key (`release` or `release-rehearsal`), signing job only; none in mode `local` | signed APK, `.sha256`, `.json`, notes, inventory, a draft release; in mode `local`, verification of the operator's draft |
 | [`verify-release.yml`](../../.github/workflows/verify-release.yml) | called by `release.yml`, dispatch | no | none | verification report |
 
 ### Source CI
@@ -67,7 +67,19 @@ the stock app ([NOTICE.md](../../NOTICE.md)).
 
 Release mode and test-release mode have separate signing steps, each naming
 only its own secrets, so a missing production secret fails the job and can
-never fall back to the rehearsal key. Nothing is published: the operator
+never fall back to the rehearsal key.
+
+Mode `local` (dispatch only, input `release`) serves the local signing
+route: the production key never enters CI. The operator attaches the
+locally signed APK, its `.sha256` and its `.json` to a draft release and
+names that draft. The sign job is skipped; a `collect` job (`contents:
+write`, which reading a draft requires, no secrets, no checkout) downloads
+exactly one APK with both files from the draft and refuses a published
+release. `verify-release.yml` then checks it in release mode against this
+run's own unsigned build, so the payload check proves the APK holds what
+this commit builds. The draft job leaves the operator's three files as they
+are and adds the notes and the inventory. A draft named exactly
+`v<VERSION>` must also carry that tag in its `.json`. Nothing is published: the operator
 reviews the draft and publishes it. The sign step and the build target
 produce the same signed bytes from the same inputs
 ([RELEASE_PIPELINE_REHEARSAL.md](../research/android/RELEASE_PIPELINE_REHEARSAL.md)).
@@ -87,8 +99,11 @@ repository; a missing file fails the job, so no other certificate passes.
 - Secrets live in environments, not at repository level. An environment's
   deployment policy admits only `main` and `v*` tags, so a dispatch from any
   other branch is refused before a step runs.
-- `release` has a required reviewer: a person approves each production
-  signing run.
+- Production signing is local: the `release` environment holds no signing
+  secret, so release mode fails at its keystore step, and mode `local`
+  verifies the operator's signed APK without a key. A required reviewer on
+  `release`, where the account's plan allows one, adds a person's approval
+  to each run that would use production secrets.
 - Every checkout uses `persist-credentials: false`; the workflow token is
   read-only except in the draft job.
 - Every external action is pinned to a full commit SHA with its version in a

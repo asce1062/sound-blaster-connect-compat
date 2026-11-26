@@ -137,11 +137,21 @@ the end-to-end check of the new key.
    `<apk>.json` shows `source_commit` equal to the release commit and
    `source_uncommitted_changes` false.
 5. Run the [release gates](#release-gates) on that APK.
-6. Tag the commit `v<VERSION>` (local route) and publish the APK, its
-   `.sha256` and `.json` unchanged, with the generated notes and inventory
-   (`scripts/release/release_notes.py notes`, `scripts/release/inventory.py`).
-   Any byte change after signing invalidates the signature; re-run the
-   target instead of editing an output.
+6. Local route: create a draft release `v<VERSION>` holding the APK, its
+   `.sha256` and `.json` unchanged, and dispatch the release workflow with
+   mode `local` and `release` set to that name:
+
+   ```sh
+   gh release create v<VERSION> --draft --target <release commit> sbconnect-compat-v<VERSION>.apk*
+   gh workflow run release.yml --ref main -f mode=local -f release=v<VERSION>
+   ```
+
+   The workflow verifies the APK against its own unsigned build of the
+   commit with no key ([CI.md](CI.md#release)) and adds the notes and the
+   inventory to the draft. Any byte change after signing invalidates the
+   signature; re-run the target instead of editing an output.
+7. Publishing the draft creates the tag `v<VERSION>` at its target commit.
+   That is the operator's decision.
 
 ## Update qualification
 
