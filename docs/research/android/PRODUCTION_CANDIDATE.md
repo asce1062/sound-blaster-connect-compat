@@ -101,6 +101,31 @@ Screenshots `hw-1-after-prompts.png`, `hw-2-connected.png`,
 `hw-6-recovered.png`, and the full log `hw-logcat.txt`, are in the same
 evidence folder.
 
-## Remaining gates
+## Update (Pixel 8)
 
-Update qualification has not run on this candidate.
+The [update qualification](../../development/RELEASE.md#update-qualification)
+ran on the same install, after the hardware run, with the Katana connected
+and the operator's synced presets and saved profiles in the app.
+
+| Item | Value |
+|---|---|
+| Labelled build | `sbconnect-compat-v0.1.0-rehearsal.1.apk`, SHA-256 `095d397523cdcfc5ca0ea9164d9ccb3ca4e7b21ec734a36ff61cb0e23bf8d553`, from `0c925cf` (differs from `596f3bb` in documentation only), no uncommitted changes |
+| Package | `com.creative.apps.sbconnect.compat`, versionCode 1000, versionName `1.04.02-compat.0.1.0-rehearsal.1` |
+| Signer | the production key, certificate `3c726afa...`; signed by the operator through `apk-compat-release`, which passed its verification; `sha256sum -c`, `verify_release.py --mode release` and `apksigner verify --print-certs` pass |
+
+| Step | Observation |
+|---|---|
+| `adb install -r` of the labelled build over the candidate | Success. `firstInstallTime` unchanged (16:56:55), `lastUpdateTime` 17:27:52, installed `base.apk` `095d3975...`. `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT` and `POST_NOTIFICATIONS` still granted `USER_SET` |
+| After the update | The system stops the app for the update and restarts the activity that was in front. It reconnects to the remembered Katana without a tap or a dialog: SPP socket 1.6 s after the process start, `maxpayloadSize 62`, foreground `connectedDevice`. The operator found the presets, saved profiles and settings as before |
+| `adb install -r` of the candidate over the labelled build | Success. `base.apk` `63dcd889...`, versionName `1.04.02-compat.0.1.0`, grants kept, reconnects without a tap, foreground `connectedDevice` |
+
+**Verdict: update gate PASS** for the production key on this device.
+
+`before-`, `after-` and `restored-dumpsys-package.txt` and
+`up-1-after-update.png` are in the operator's evidence folder
+`update-rehearsal-v0.1.0-2026-11-26`; the log is `hw-logcat.txt` above.
+
+## Result
+
+All four [release gates](../../development/RELEASE.md#release-gates)
+pass for `63dcd889...`. The Pixel 8 is left with the candidate installed.
